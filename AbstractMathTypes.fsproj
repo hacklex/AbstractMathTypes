@@ -6,6 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="MathTypes.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

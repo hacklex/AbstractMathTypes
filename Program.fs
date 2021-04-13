@@ -70,10 +70,6 @@ type EuclideanDomainExtensions() =
             c.normalPart
         gcd(p, q)
 
-        
-
-
-
 type IField<'TValue when 'TValue :> IAdditiveGroup<'TValue> and 'TValue :> IMultiplicativeGroup<'TValue>> =
     inherit IRing<'TValue> 
     inherit IMultiplicativeGroup<'TValue> 
@@ -90,8 +86,6 @@ type IntegerValueType (bigInt : BigInteger) =
         member p.divRem(q) = if (q:>IAdditiveGroup<IntegerValueType>).isZero then None else Some (new IntegerValueType(p.value / q.value), new IntegerValueType(p.value % q.value))
         member p.normalPart = new IntegerValueType(p.value * new BigInteger(p.value.Sign))
         member p.unitPart = new IntegerValueType(new BigInteger(p.value.Sign))
-
-
 
 type PolyRing<'TCoefficient when 'TCoefficient :> IRing<'TCoefficient>>(coeffs : 'TCoefficient[])  =
     member _.coeffs = coeffs  
@@ -114,11 +108,9 @@ type IntPolyRing(coeffs : IntegerValueType[]) =
 
 [<EntryPoint>]
 let main argv =
+    let intRing = MathTypes.IntegerUnivariatePolyRing();
 
-    let poly1 = new IntPolyRing([| new IntegerValueType(new BigInteger(1)) ; new IntegerValueType(new BigInteger(4)) |] )
-    let poly2 = new IntPolyRing([| new IntegerValueType(new BigInteger(2)) ; new IntegerValueType(new BigInteger(3)) ; new IntegerValueType(new BigInteger(7)) |] )
-        
-    let p3 = (poly1 :> IAdditiveGroup<PolyRing<IntegerValueType>>).add(poly2);
-
-    printfn "At least this didn't freeze!" 
+    let p1 = MathTypes.IntegerUnivariatePolyRing().Add [| 10I; 3I |] [| 2I; 1I; 5I |]
+    
+    printfn "f(x) = %s" (intRing.GetString(p1))
     0 // return an integer exit code
