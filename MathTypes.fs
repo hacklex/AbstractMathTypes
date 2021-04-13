@@ -18,7 +18,7 @@ type 'T CommutativeBinaryOp(op) = inherit ('T BinaryOp)(op)
 
 let private SimpleEquals a b = a = b
 let private SimpleAdd a b = a + b
-let private SimpleMultiply a b = a + b
+let private SimpleMultiply a b = a * b
 
 /// <summary>
 /// Semigroup from elements of type <typeparamref name="'T">'T</typeparamref> 
