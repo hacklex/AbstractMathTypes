@@ -104,7 +104,7 @@ type PolyRing<'TCoefficient when 'TCoefficient :> IRing<'TCoefficient>>(coeffs :
             let l1 = if p.coeffs.Length > q.coeffs.Length then p.coeffs else q.coeffs
             let l2small = if p.coeffs.Length > q.coeffs.Length then q.coeffs else p.coeffs
             let lendiff = l1.Length - l2small.Length
-            let l2 = if lendiff = 0 then l2small else Array.concat [ l2small ; [| for i in 1..lendiff -> (l1 .[0]).zero |] ]            
+            let l2 = if lendiff = 0 then l2small else [| yield! l2small ; for i in 1..lendiff -> (l1 .[0]).zero |]            
             let resultArray = Array.map2 (fun (p:'TCoefficient) -> fun q -> p.add(q)) l1 l2
             let lastNonZero = Array.FindLastIndex(resultArray, fun coeff -> not coeff.isZero)
             new PolyRing<'TCoefficient>(Array.sub resultArray.[..lastNonZero] 0 (lastNonZero+1))
