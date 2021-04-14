@@ -97,6 +97,7 @@ type 'T CommutativeGroup(neutralElement: 'T,
 type 'T Rng(additiveGroup: 'T CommutativeGroup,
             multiplicativeSemigroup: 'T Semigroup) =  
   member _.Zero = additiveGroup.NeutralElement
+  member _.IsNotZero = Predicate(fun x -> not (additiveGroup.Compare x additiveGroup.NeutralElement))
   member _.Compare x y = additiveGroup.Compare x y
   member _.Add x y = additiveGroup.Op x y
   member _.Subtract x y = additiveGroup.Op x (additiveGroup.Invert y)
@@ -200,6 +201,10 @@ type 'T EuclideanDomain(additiveGroup: 'T CommutativeGroup,
 let private PolyComparison<'T> (ring : 'T Ring) (polyA :'T[]) (polyB : 'T[]) = 
   (polyA.Length = polyB.Length) && Seq.forall2 ring.Compare polyA polyB
 
+let private CompactPoly<'T> (ring: 'T Ring) (poly: 'T[]) = 
+  let lastNonZero = array.FindLastIndex(poly, ring.IsNotZero)
+  Array.sub poly.[..lastNonZero] 0 (lastNonZero + 1)
+
 /// <summary>
 /// Additive group of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
 /// The coefficient ring structure dictates the ring operations on the polynomials.
@@ -212,14 +217,12 @@ type 'TCoefficient UnivariatePolynomialAdditiveGroup(coefficientRing: 'TCoeffici
       //polynomial addition
       new ('TCoefficient[] CommutativeBinaryOp)(fun polyA polyB -> 
         let zero = coefficientRing.Zero
-        let nonZero = Predicate(fun coeff -> not (coefficientRing.Compare coeff zero))
         let l1 = if polyA.Length > polyB.Length then polyA else polyB
         let l2small = if polyA.Length > polyB.Length then polyB else polyA
         let lengthDiff = l1.Length - l2small.Length
         let l2 = PadArrayWith l2small lengthDiff zero                                                        
         let resultArray = Array.map2 coefficientRing.Add l1 l2
-        let lastNonZero = array.FindLastIndex(resultArray, nonZero)
-        Array.sub resultArray.[..lastNonZero] 0 (lastNonZero+1)
+        CompactPoly coefficientRing resultArray
       ), 
       //polynomial negation
       new UnaryOp<'TCoefficient[]>(fun poly -> Array.map coefficientRing.Negate poly), 
@@ -245,7 +248,10 @@ type 'TCoefficient UnivariatePolynomialMultiplicativeMonoid(coefficientRing: 'TC
         for i in 0..polyA.Length-1 do 
             for j in 0..polyB.Length-1 do
             Array.set result (i+j) (coefficientRing.Add result.[i+j] (mul i j))
-        result
+        // This is needed for polys over non-domains, where the product of the coefficients
+        // may become zero without either of the coefficients being such.
+        // For example, (2x)(3x+1) is just 2x in Z6[x].
+        CompactPoly coefficientRing result
     ), 
     // glory to the curry!
     PolyComparison coefficientRing)
