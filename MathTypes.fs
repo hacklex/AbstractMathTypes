@@ -294,18 +294,19 @@ type IntegerUnivariatePolyRing() =
       for i in 0..ubound do 
         // we write our poly starting from the highest degree
         let power = ubound - i
-        let signString = (if i = 0 then firstSign else sign) poly.[power]
-        // if the highest degree is 0 (constant poly), we write the constant
-        if ubound = 0 then sb.Append(poly.[0].ToString()) |> ignore
-        // we don't write "1x", just "x"
-        else sb.Append(if (power <> 0 && poly.[power] = 1I) 
-                       then signString 
-                       else signString + (abs poly.[power]).ToString() 
-                      ) |> ignore 
-        // we write "" instead of "x^0", and "x" instead of "x^1"
-        // other than that, we write x^{power}.
-        if power > 0 
-        then sb.Append("x" + if (ubound - i = 1) 
-                             then "" else "^" + (ubound - i).ToString()
-                      ) |> ignore
+        if poly.[power] <> 0I then 
+          let signString = (if i = 0 then firstSign else sign) poly.[power]
+          // if the highest degree is 0 (constant poly), we write the constant
+          if ubound = 0 then sb.Append(poly.[0].ToString()) |> ignore
+          // we don't write "1x", just "x"
+          else sb.Append(if (power <> 0 && poly.[power] = 1I) 
+                         then signString 
+                         else signString + (abs poly.[power]).ToString() 
+                        ) |> ignore 
+          // we write "" instead of "x^0", and "x" instead of "x^1"
+          // other than that, we write x^{power}.
+          if power > 0 
+          then sb.Append("x" + if (ubound - i = 1) 
+                               then "" else "^" + (ubound - i).ToString()
+                        ) |> ignore
     sb.ToString()
