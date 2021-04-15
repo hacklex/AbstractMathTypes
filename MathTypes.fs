@@ -426,6 +426,16 @@ type RationalNumberField() =
     let inside = r.Numerator.ToString() + (if r.Denominator=1I then "" else "/" + r.Denominator.ToString())
     if r.Numerator<0I then "(" + inside + ")" else inside
 
+/// Returns a human-readable string representation for given polynomial
+let GetPolyString<'T> (ring: 'T Ring) (coeffToString: 'T -> string) (poly: 'T[]) =
+  let sb = StringBuilder()
+  let coefWrite (index:int) coef = 
+    if index = 0 then (coeffToString coef) else 
+      let xPart = if index=1 then "x" else "x^"+index.ToString()
+      let coefPart = (if (ring.Compare ring.One coef) then "" else (coeffToString coef))
+      coefPart+xPart
+  String.Join(" + ", Array.rev(Array.mapi coefWrite poly))
+
 /// Usual polynomials with integer coefficients
 type IntegerUnivariatePolyRing() = 
   // this imports all the logic just as planned
