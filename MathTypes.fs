@@ -199,7 +199,20 @@ type 'T EuclideanDomain(additiveGroup: 'T CommutativeGroup,
         c <- d
         d <- r
       Some (this.NormalPart c)
-      
+     
+type 'T Field(additiveGroup : 'T CommutativeGroup,
+              multiplicativeCommutativeMonoid : 'T CommutativeMonoid,
+              unitAndNormalParts: 'T -> ('T * 'T),              
+              valuation: 'T -> (bigint option),
+              divide : 'T -> 'T -> ('T option)) = 
+  inherit ('T EuclideanDomain)(additiveGroup,  
+                               multiplicativeCommutativeMonoid,
+                               unitAndNormalParts,
+                               (fun a b -> if (additiveGroup.Compare b additiveGroup.NeutralElement) then None 
+                                           else Some((divide a b).Value, additiveGroup.NeutralElement)),
+                               valuation)
+  member _.Divide a b = divide a b
+  member _.Invert a = (divide multiplicativeCommutativeMonoid.NeutralElement a)
 /// This would probably be reused a lot of times...
 let private PolyComparison<'T> (ring : 'T Ring) (polyA :'T[]) (polyB : 'T[]) = 
   (polyA.Length = polyB.Length) && Seq.forall2 ring.Compare polyA polyB
