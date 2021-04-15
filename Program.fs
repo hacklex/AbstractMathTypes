@@ -1,16 +1,19 @@
 ﻿// Basic abstract algebra types
-
-
-
+open MathTypes
 
 [<EntryPoint>]
-let main argv =
-    let intRing = MathTypes.IntegerUnivariatePolyRing();
+let main argv =    
+    let rationalNumberField = MathTypes.RationalNumberField()
+    let domainOfPolynomialsOverQ = MathTypes.UnivariatePolyOverFieldDomain(rationalNumberField) //Q[x]
 
-    let p1 = MathTypes.IntegerUnivariatePolyRing().Multiply [| 10I; 3I |] [| 2I; 1I; 5I |]
+    let r1 = [| 2Q; 1Q; 5Q |]
+    let r2 = [| 10Q/7Q; 1Q |]
+    let R1DivRemR2 = domainOfPolynomialsOverQ.DivRem r1 r2
+
+    let getQPolyString = GetPolyString rationalNumberField rationalNumberField.GetString 
+
+    let (div, rem) = R1DivRemR2.Value
+
+    printfn "%s = (%s)*(%s) + %s" (getQPolyString r1) (getQPolyString r2) (getQPolyString div) (getQPolyString rem)
     
-    printfn "%s" (intRing.GetString([| 10I; 3I |]))
-    printfn "  times  "
-    printfn "%s" (intRing.GetString([| 2I; 1I; 5I |]))
-    printfn "  equals %s%s" Environment.NewLine (intRing.GetString(p1))
     0 // return an integer exit code
