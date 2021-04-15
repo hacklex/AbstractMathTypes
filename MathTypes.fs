@@ -344,6 +344,20 @@ type 'TCoefficient UnivariatePolynomialRing(coefficientRing : 'TCoefficient Ring
     (new ('TCoefficient UnivariatePolynomialAdditiveGroup)(coefficientRing)), 
     (new ('TCoefficient UnivariatePolynomialMultiplicativeMonoid)(coefficientRing)))
 
+/// Polynomial ring with coefficients from a field, which allows poly division
+type 'TCoefficient UnivariatePolyOverFieldDomain(coefficientField : 'TCoefficient Field) =
+  inherit EuclideanDomain<'TCoefficient[]>(  
+      (new ('TCoefficient UnivariatePolynomialAdditiveGroup)(coefficientField)), 
+      // we have to do this due to the lack of multi-inheritance in F#
+      (new ('TCoefficient UnivariatePolynomialMultiplicativeCommutativeMonoid)(coefficientField.AsCommutativeRing)),
+      (fun (poly : 'TCoefficient[]) -> // Unit part is sign(lc(p(x))), Normal part is p(x)/unitPart(p(x))
+         if Array.Exists(poly, coefficientField.IsNotZero) 
+         then ([| coefficientField.UnitPart poly.[poly.Length-1] |], (GetPolyNormalPart coefficientField poly))           
+         else ([| coefficientField.One |], [||])),
+      (fun (polyA : 'TCoefficient[]) (polyB : 'TCoefficient[]) -> (PolyDivide coefficientField polyA polyB)),
+      (fun (poly : 'TCoefficient[]) -> (PolyDegree coefficientField poly) |> Option.map BigInteger)      
+  )  
+
 /// Regular integers as an Euclidean Domain
 type IntegerRing() = 
   inherit EuclideanDomain<bigint>(
