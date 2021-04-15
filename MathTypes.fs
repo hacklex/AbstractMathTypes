@@ -213,6 +213,10 @@ type 'T Field(additiveGroup : 'T CommutativeGroup,
                                valuation)
   member _.Divide a b = divide a b
   member _.Invert a = (divide multiplicativeCommutativeMonoid.NeutralElement a)
+
+let Monomial<'T> (ring: 'T Ring) degree (coefficient: 'T) = 
+  [| yield! (Array.create degree ring.Zero); coefficient |]
+
 /// This would probably be reused a lot of times...
 let private PolyComparison<'T> (ring : 'T Ring) (polyA :'T[]) (polyB : 'T[]) = 
   (polyA.Length = polyB.Length) && Seq.forall2 ring.Compare polyA polyB
@@ -220,6 +224,64 @@ let private PolyComparison<'T> (ring : 'T Ring) (polyA :'T[]) (polyB : 'T[]) =
 let private CompactPoly<'T> (ring: 'T Ring) (poly: 'T[]) = 
   let lastNonZero = array.FindLastIndex(poly, ring.IsNotZero)
   Array.sub poly.[..lastNonZero] 0 (lastNonZero + 1)
+
+let private PolyDegree<'T> (ring: 'T Ring) (poly: 'T[]) = 
+  if poly.Length < 1 then None else Some(array.FindLastIndex(poly, ring.IsNotZero))
+  
+let private PolyLc<'T> (ring: 'T Ring) (poly: 'T[]) = 
+  let lastNonZero = array.FindLastIndex(poly, ring.IsNotZero)
+  poly.[lastNonZero]
+
+let private PolyAdd<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) = 
+  let zero = ring.Zero
+  let l1 = if polyA.Length > polyB.Length then polyA else polyB
+  let l2small = if polyA.Length > polyB.Length then polyB else polyA
+  let lengthDiff = l1.Length - l2small.Length
+  let l2 = PadArrayWith l2small lengthDiff zero                                                        
+  let resultArray = Array.map2 ring.Add l1 l2
+  CompactPoly ring resultArray
+
+let private PolyNegate<'T> (ring: 'T Ring) (poly: 'T[]) = 
+  Array.map ring.Negate poly
+
+let private PolySubtract<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) = 
+  PolyAdd ring polyA (PolyNegate ring polyB)
+
+let private PolyMultiply<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) = 
+  let mul i j = ring.Multiply polyA.[i] polyB.[j] // to save horizontal screen space
+  let resultingDegree = polyA.Length + polyB.Length
+  if resultingDegree = 0 then [||] else
+    let result = Array.create (resultingDegree-1) ring.Zero 
+    for i in 0..polyA.Length-1 do 
+      for j in 0..polyB.Length-1 do
+      Array.set result (i+j) (ring.Add result.[i+j] (mul i j))
+  // This is needed for polys over non-domains, where the product of the coefficients
+  // may become zero without either of the coefficients being such.
+  // For example, (2x)(3x+1) is just 2x in Z6[x].
+    CompactPoly ring result
+
+let private PolyDivide<'T> (coefField: 'T Field) (polyA: 'T[]) (polyB: 'T[]) = 
+  let deg = PolyDegree coefField
+  let vdeg poly = match (deg poly) with | None -> -1 | Some(i) -> i
+  let lc = PolyLc coefField
+  if not(Array.Exists(polyB, coefField.IsNotZero)) then None 
+  else Some(
+            let bLcInverse = (coefField.Invert (lc polyB)).Value
+            let bDegree = (vdeg polyB) 
+            let mutable div = [||]
+            let mutable rem = polyA  
+            while (vdeg rem) >= (vdeg polyB) do                
+                let nextMultiply = (Monomial (coefField) ((vdeg rem) - bDegree) (coefField.Multiply (lc rem) bLcInverse))
+                rem <- PolySubtract coefField rem (PolyMultiply coefField nextMultiply polyB)
+                div <- (PolyAdd coefField div nextMultiply)
+            (div, rem)
+           )
+
+
+let private GetPolyNormalPart<'T> (ufd: 'T UniqueFactorizationDomain) (poly: 'T[]) = 
+   if not(Array.Exists(poly, ufd.IsNotZero)) then poly else 
+       let unitPart = ufd.UnitPart (PolyLc ufd poly)
+       Array.map (fun c -> (ufd.Div c unitPart).Value) poly
 
 /// <summary>
 /// Additive group of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
