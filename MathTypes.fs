@@ -360,24 +360,21 @@ type 'TCoefficient UnivariatePolyOverFieldDomain(coefficientField : 'TCoefficien
 
 /// Regular integers as an Euclidean Domain
 type IntegerRing() = 
-  inherit EuclideanDomain<bigint>(
-      // additive group with standard operations
-      (new CommutativeGroup<bigint>( 0I, 
+  inherit EuclideanDomain<bigint>((new CommutativeGroup<bigint>(0I, 
                                      new CommutativeBinaryOp<bigint>(SimpleAdd), 
                                      new UnaryOp<bigint>(bigint.Negate), 
-                                     SimpleEquals)),
-      // multiplicative monoid with standard operations
-      (new CommutativeMonoid<bigint>(0I, 
+                                     SimpleEquals)),                                  
+                                  (new CommutativeMonoid<bigint>(1I, 
                                      new CommutativeBinaryOp<bigint>(SimpleMultiply), 
                                      SimpleEquals)),
-      // unit part and normal part is the generalization of sign and absolute value 
-      // for general domains. Certain rings have more units than just -1 and 1.
-      (fun p -> if p < 0I then (-1I, -p) else (1I, p)),
-      // DivRem is standard, except we consider it to be None when the divisor is 0      
-      (fun p q -> if q = 0I then None else Some(p/q, p % q)),
-      // valuation for integers is just the absolute value function
-      (fun p -> if p = 0I then None else Some (bigint.Abs p))
-  )
+                                  // unit part and normal part is the generalization of sign and absolute value 
+                                  // for general domains. Certain rings have more units than just -1 and 1.
+                                  (fun p -> if p < 0I then (-1I, -p) else (1I, p)),
+                                  // DivRem is standard, except we consider it to be None when the divisor is 0      
+                                  (fun p q -> if q = 0I then None else Some(p/q, p % q)),
+                                  // valuation for integers is just the absolute value function
+                                  (fun p -> if p = 0I then None else Some (bigint.Abs p)))
+
 
 /// Usual polynomials with integer coefficients
 type IntegerUnivariatePolyRing() = 
