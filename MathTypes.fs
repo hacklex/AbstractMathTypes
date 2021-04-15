@@ -1,4 +1,7 @@
-﻿module MathTypes
+﻿/// Most basic implementation for abstract algebra types.
+/// Refer to K.O. Geddes, S.R. Czapor, G. Labahn -- Algorithms for computer algebra
+/// when unsure about naming conventions, terms etc.
+module MathTypes
 
 open System.Numerics
 open System
