@@ -319,22 +319,25 @@ type 'TCoefficient UnivariatePolynomialMultiplicativeMonoid(coefficientRing: 'TC
     [| coefficientRing.One |], 
     // Polynomial multiplication. By the time I was writing this one, I was so exhausted 
     // that I actually double-checked in a CAS that deg (p*q) = deg(p)+deg(q) -_-
-    new ('TCoefficient[] BinaryOp)(fun polyA polyB -> 
-      let mul i j = coefficientRing.Multiply polyA.[i] polyB.[j] // to save horizontal screen space
-      let resultingDegree = polyA.Length + polyB.Length
-      if resultingDegree = 0 then [||] else
-        let result = Array.create (resultingDegree-1) coefficientRing.Zero 
-        for i in 0..polyA.Length-1 do 
-            for j in 0..polyB.Length-1 do
-            Array.set result (i+j) (coefficientRing.Add result.[i+j] (mul i j))
-        // This is needed for polys over non-domains, where the product of the coefficients
-        // may become zero without either of the coefficients being such.
-        // For example, (2x)(3x+1) is just 2x in Z6[x].
-        CompactPoly coefficientRing result
-    ), 
+    (new ('TCoefficient[] BinaryOp)(PolyMultiply coefficientRing)), 
+    // glory to the curry!
+    (PolyComparison coefficientRing))
+
+/// <summary>
+/// Multiplicative monoid of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
+/// The coefficient ring structure dictates the ring operations on the polynomials.
+/// Note that K[x] is merely a ring in general, and only becomes a field if x is algebraic over K.
+/// </summary>
+type 'TCoefficient UnivariatePolynomialMultiplicativeCommutativeMonoid(coefficientRing: 'TCoefficient CommutativeRing) = 
+  inherit CommutativeMonoid<'TCoefficient[]>(
+    // multiplicative identity polynomial, i.e. just one constant coefficient "1"
+    [| coefficientRing.One |], 
+    // Polynomial multiplication. By the time I was writing this one, I was so exhausted 
+    // that I actually double-checked in a CAS that deg (p*q) = deg(p)+deg(q) -_-
+    (new ('TCoefficient[] CommutativeBinaryOp)(PolyMultiply coefficientRing)), 
     // glory to the curry!
     PolyComparison coefficientRing)
-
+    
 /// Polynomial ring with arbitrary coefficient ring
 type 'TCoefficient UnivariatePolynomialRing(coefficientRing : 'TCoefficient Ring) =
   inherit Ring<'TCoefficient[]>(
