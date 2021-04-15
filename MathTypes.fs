@@ -235,7 +235,7 @@ type 'TCoefficient UnivariatePolynomialAdditiveGroup(coefficientRing: 'TCoeffici
 /// <summary>
 /// Multiplicative monoid of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
 /// The coefficient ring structure dictates the ring operations on the polynomials.
-/// Note that K[x] is only a ring in general, and only becomes a field if x is algebraic over K.
+/// Note that K[x] is merely a ring in general, and only becomes a field if x is algebraic over K.
 /// </summary>
 type 'TCoefficient UnivariatePolynomialMultiplicativeMonoid(coefficientRing: 'TCoefficient Ring) = 
   inherit Monoid<'TCoefficient[]>(
