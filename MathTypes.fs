@@ -151,6 +151,7 @@ type 'T IntegralDomain(additiveGroup: 'T CommutativeGroup,
                        multiplicativeCommutativeMonoid: 'T CommutativeMonoid, 
                        unitAndNormalParts : 'T -> ('T * 'T)) =
   inherit ('T Domain)(additiveGroup, multiplicativeCommutativeMonoid)
+  member d.AsCommutativeRing = CommutativeRing(additiveGroup, multiplicativeCommutativeMonoid)
   member _.UnitAndNormalParts x = unitAndNormalParts x
   member _.UnitPart x = fst (unitAndNormalParts x)
   member _.NormalPart x = snd (unitAndNormalParts x)
