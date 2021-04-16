@@ -220,6 +220,8 @@ type 'T Field(additiveGroup : 'T CommutativeGroup,
                                valuation)
   member _.Divide a b = divide a b
   member _.Invert a = (divide multiplicativeCommutativeMonoid.NeutralElement a)
+  member _.AdditiveGroup = additiveGroup
+  member _.MultiplicativeCommutativeMonoid = multiplicativeCommutativeMonoid
 
 
 let private QuotientNormalize<'T> (domain: 'T IntegralDomain) ((num, den) : 'T*'T) = 
@@ -429,6 +431,12 @@ type 'TCoefficient UnivariatePolyOverFieldDomain(coefficientField : 'TCoefficien
       (fun (polyA : 'TCoefficient[]) (polyB : 'TCoefficient[]) -> (PolyDivRem coefficientField polyA polyB)),
       (fun (poly : 'TCoefficient[]) -> (PolyDegree coefficientField poly) |> Option.map BigInteger)      
   )  
+
+type 'T DifferentialField(functionField: 'T Field, derive : 'T -> 'T) = 
+  inherit ('T Field)(functionField.AdditiveGroup, functionField.MultiplicativeCommutativeMonoid,
+                     functionField.UnitAndNormalParts, functionField.Valuation, functionField.Divide)
+  member _.Derive = derive
+  
 
 /// Regular integers as an Euclidean Domain
 type IntegerRing() = 

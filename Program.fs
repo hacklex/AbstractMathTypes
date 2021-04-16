@@ -17,6 +17,23 @@ let main argv =
     // and get function simplify, gcd and such, for free, just for it being a quotient field.
     let rationalFunctionsOfX = QuotientField(rationalPolyDomain)
     
+    let polyDerive (f: (bigint * bigint)[]) =
+      Array.mapi (fun n (a,b) -> (rationalField.Multiply (a, b) (bigint(n+1), 1I))) (Array.sub f 1 (f.Length-1))
+    
+
+    let ratFunDifField = DifferentialField(rationalFunctionsOfX, (fun (p,q) ->         
+         let polyOne = [|(1I, 1I)|]
+         let a = (p, polyOne)
+         let b = (q, polyOne)
+         let dA = ((polyDerive p), polyOne)
+         let dB = ((polyDerive q), polyOne)         
+         let nume = (rationalFunctionsOfX.Subtract (rationalFunctionsOfX.Multiply dA b)
+                                                   (rationalFunctionsOfX.Multiply a dB))
+         let deno = rationalFunctionsOfX.Multiply (q, polyOne) (q, polyOne)
+         (rationalFunctionsOfX.Divide nume deno).Value
+        )
+    )
+
     // surely we'd love pretty-printing our polys
     let getQPolyString = GetPolyString rationalField (fun (a,b) -> if a=0I then "0"
                                                                    else if b=1I then if a<0I 
@@ -32,9 +49,25 @@ let main argv =
     let g = ( [|(-2I, 1I) ; (1I, 1I)|], [|(4I, 1I) ; (0I, 1I) ; (1I, 1I)|] )
     // let's test adding those two
     let (sumNum, sumDen) = rationalFunctionsOfX.Add f g
-     
+
     printfn "(%s)/(%s)  +  (%s)/(%s)   =   (%s)/(%s)" (getQPolyString (fst f)) (getQPolyString (snd f))
                                                       (getQPolyString (fst g)) (getQPolyString (snd g))
                                                       (getQPolyString sumNum) (getQPolyString sumDen)
+    
+    printfn ""
+    printfn "Derivation test"
+    printfn ""
+
+    let pd = (polyDerive sumNum)
+
+    printfn "D[%s] = %s" (getQPolyString sumNum) (getQPolyString pd)
+    
+    printfn ""
+
+    let (dn, dd) = ratFunDifField.Derive (sumNum, sumDen)
+
+    printfn "D[(%s)/(%s)] = %s (%s)/(%s)" (getQPolyString sumNum) (getQPolyString sumDen)
+                                       (System.Environment.NewLine)
+                                       (getQPolyString dn) (getQPolyString dd)
 
     0 // return an integer exit code
