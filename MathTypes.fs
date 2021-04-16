@@ -502,11 +502,20 @@ type RationalNumberField() =
 let GetPolyString<'T> (ring: 'T Ring) (coeffToString: 'T -> string) (poly: 'T[]) =
   let sb = StringBuilder()
   let coefWrite (index:int) coef = 
-    if index = 0 then (coeffToString coef) else 
-      let xPart = if index=1 then "x" else "x^"+index.ToString()
-      let coefPart = (if (ring.Compare ring.One coef) then "" else (coeffToString coef))
-      coefPart+xPart
-  String.Join(" + ", Array.rev(Array.mapi coefWrite poly))
+    if index = 0 then (coeffToString coef) else      
+        let xPart = if index=1 then "x" else "x^"+index.ToString()
+        let coefPart = (if (ring.Compare ring.One coef) then "" else (coeffToString coef))
+        coefPart+xPart
+  let cf i = poly.[poly.Length-i-1]
+  for i in 0..poly.Length-1 do
+    let deg = poly.Length-1-i
+    let cfNotZero = ring.IsNotZero.Invoke((cf i))
+    if i>0 && cfNotZero then 
+      sb.Append(" + ") |> ignore
+    if cfNotZero then 
+      sb.Append((coefWrite deg (cf i)) ) |> ignore
+  sb.ToString()
+  
 
 /// Usual polynomials with integer coefficients
 type IntegerUnivariatePolyRing() = 
