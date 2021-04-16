@@ -100,6 +100,7 @@ type 'T CommutativeGroup(neutralElement: 'T,
 type 'T Rng(additiveGroup: 'T CommutativeGroup,
             multiplicativeSemigroup: 'T Semigroup) =  
   member _.Zero = additiveGroup.NeutralElement
+  member _.IsZero = Predicate(fun x -> (additiveGroup.Compare x additiveGroup.NeutralElement))
   member _.IsNotZero = Predicate(fun x -> not (additiveGroup.Compare x additiveGroup.NeutralElement))
   member _.Compare x y = additiveGroup.Compare x y
   member _.Add x y = additiveGroup.Op x y
@@ -149,12 +150,14 @@ type 'T Domain(additiveGroup: 'T CommutativeGroup,
 /// </remarks>
 type 'T IntegralDomain(additiveGroup: 'T CommutativeGroup, 
                        multiplicativeCommutativeMonoid: 'T CommutativeMonoid, 
-                       unitAndNormalParts : 'T -> ('T * 'T)) =
+                       unitAndNormalParts : 'T -> ('T * 'T),
+                       unitInverse: 'T -> 'T) =
   inherit ('T Domain)(additiveGroup, multiplicativeCommutativeMonoid)
   member d.AsCommutativeRing = CommutativeRing(additiveGroup, multiplicativeCommutativeMonoid)
   member _.UnitAndNormalParts x = unitAndNormalParts x
   member _.UnitPart x = fst (unitAndNormalParts x)
   member _.NormalPart x = snd (unitAndNormalParts x)
+  member _.UnitInverse x = unitInverse x
   
 /// <summary>
 /// Unique Factorization Domain from elements of type <typeparamref name="'T">'T</typeparamref> 
@@ -168,7 +171,10 @@ type 'T UniqueFactorizationDomain(additiveGroup: 'T CommutativeGroup,
                                   multiplicativeCommutativeMonoid: 'T CommutativeMonoid, 
                                   unitAndNormalParts : 'T -> ('T * 'T), 
                                   divRem : 'T -> 'T -> ('T * 'T) option) = 
-  inherit ('T IntegralDomain)(additiveGroup, multiplicativeCommutativeMonoid, unitAndNormalParts)
+  inherit ('T IntegralDomain)(additiveGroup, 
+                              multiplicativeCommutativeMonoid, 
+                              unitAndNormalParts, 
+                              fun unit -> fst ((divRem multiplicativeCommutativeMonoid.NeutralElement unit).Value))
   member _.DivRem x y = divRem x y
   member _.Div x y = match divRem x y with | Some (d, _) -> Some(d) | None -> None
   member _.Rem x y = match divRem x y with | Some (_, r) -> Some(r) | None -> None
@@ -215,6 +221,70 @@ type 'T Field(additiveGroup : 'T CommutativeGroup,
   member _.Divide a b = divide a b
   member _.Invert a = (divide multiplicativeCommutativeMonoid.NeutralElement a)
 
+
+let private QuotientNormalize<'T> (domain: 'T IntegralDomain) ((num, den) : 'T*'T) = 
+  let finalUnitPart = domain.Multiply (domain.UnitPart num) (domain.UnitInverse (domain.UnitPart den))  
+  ((domain.Multiply finalUnitPart (domain.NormalPart num)), (domain.NormalPart den))
+
+let private QuotientUnitAndNormalParts<'T> (domain: 'T IntegralDomain) ((num,den): 'T*'T) = 
+  let (normNum, normDen) = QuotientNormalize domain (num, den)
+  ( ((domain.UnitPart normNum), domain.One), ( (domain.NormalPart normNum), normDen ) )
+
+let private QuotientCompact<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) =
+  match domain with
+  | :? EuclideanDomain<'T> -> let ed = domain :?> 'T EuclideanDomain
+                              let gcd = ed.Gcd(a, b)
+                              if gcd.IsNone then (domain.Zero, domain.One)
+                              else let cd = gcd.Value
+                                   QuotientNormalize domain ((ed.Div a cd).Value, (ed.Div b cd).Value)
+  | _ -> QuotientNormalize domain (a, b)  
+
+let private QuotientAdd<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) ((c,d): 'T*'T) = 
+  let num = domain.Add (domain.Multiply a d) (domain.Multiply b c)
+  let den = domain.Multiply b d
+  QuotientCompact domain (num, den)                            
+
+let private QuotientNegate<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) =
+  ((domain.Negate a), b)
+
+let private QuotientSubtract<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) ((c,d): 'T*'T) = 
+  QuotientAdd domain (a,b) (QuotientNegate domain (c,d))
+
+let private QuotientMultiply<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) ((c,d): 'T*'T) =   
+  let num = domain.Multiply a c
+  let den = domain.Multiply b d
+  QuotientCompact domain (num, den)   
+
+let private QuotientCompare<'T> (domain: 'T IntegralDomain) (a: 'T*'T) (b: 'T*'T) =    
+  domain.IsZero.Invoke (fst (QuotientSubtract domain a b))
+
+let private QuotientDivide<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) ((c,d): 'T*'T) =     
+  if (domain.Compare c domain.Zero) then None
+  else if (domain.Compare a domain.Zero) 
+  then Some((domain.Zero, domain.One)) else        
+    let (numUnit, numAbs) = (domain.UnitAndNormalParts (domain.Multiply a d))
+    let (denUnit, denAbs) = (domain.UnitAndNormalParts (domain.Multiply b c))
+    let unitPart = domain.Multiply numUnit (domain.UnitInverse denUnit)
+    let num = domain.Multiply unitPart numAbs
+    let den = denAbs
+    Some(QuotientCompact domain (num, den))
+
+
+
+type QuotientField<'T> (domain: 'T IntegralDomain) =
+  inherit  Field<'T * 'T>(
+      CommutativeGroup((domain.Zero, domain.One), 
+                       CommutativeBinaryOp(QuotientAdd domain),
+                       UnaryOp(QuotientNegate domain),
+                       QuotientCompare domain),
+      CommutativeMonoid((domain.One, domain.One),
+                        CommutativeBinaryOp(QuotientMultiply domain),
+                        QuotientCompare domain),
+      QuotientUnitAndNormalParts domain,
+      (fun (a,_) -> if (domain.IsZero.Invoke(a)) then None else Some(0I)),
+      QuotientDivide domain
+  )
+
 let Monomial<'T> (ring: 'T Ring) degree (coefficient: 'T) = 
   [| yield! (Array.create degree ring.Zero); coefficient |]
 
@@ -248,7 +318,7 @@ let private PolyNegate<'T> (ring: 'T Ring) (poly: 'T[]) =
 let private PolySubtract<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) = 
   PolyAdd ring polyA (PolyNegate ring polyB)
 
-let private PolyMultiply<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) = 
+let private PolyMultiply<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) =   
   let mul i j = ring.Multiply polyA.[i] polyB.[j] // to save horizontal screen space
   let resultingDegree = polyA.Length + polyB.Length
   if resultingDegree = 0 then [||] else
@@ -261,12 +331,12 @@ let private PolyMultiply<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) =
   // For example, (2x)(3x+1) is just 2x in Z6[x].
     CompactPoly ring result
 
-let private PolyDivide<'T> (coefField: 'T Field) (polyA: 'T[]) (polyB: 'T[]) = 
+let private PolyDivRem<'T> (coefField: 'T Field) (polyA: 'T[]) (polyB: 'T[]) = 
   let deg = PolyDegree coefField
   let vdeg poly = match (deg poly) with | None -> -1 | Some(i) -> i
   let lc = PolyLc coefField
   if not(Array.Exists(polyB, coefField.IsNotZero)) then None 
-  else Some(
+  else Some(  
             let bLcInverse = (coefField.Invert (lc polyB)).Value
             let bDegree = (vdeg polyB) 
             let mutable div = [||]
@@ -352,9 +422,11 @@ type 'TCoefficient UnivariatePolyOverFieldDomain(coefficientField : 'TCoefficien
       (new ('TCoefficient UnivariatePolynomialMultiplicativeCommutativeMonoid)(coefficientField.AsCommutativeRing)),
       (fun (poly : 'TCoefficient[]) -> // Unit part is sign(lc(p(x))), Normal part is p(x)/unitPart(p(x))
          if Array.Exists(poly, coefficientField.IsNotZero) 
-         then ([| coefficientField.UnitPart poly.[poly.Length-1] |], (GetPolyNormalPart coefficientField poly))           
+         then ([| PolyLc coefficientField poly |], 
+               ( PolyMultiply coefficientField poly 
+                              [| (coefficientField.Divide coefficientField.One (PolyLc coefficientField poly)).Value |] ))           
          else ([| coefficientField.One |], [||])),
-      (fun (polyA : 'TCoefficient[]) (polyB : 'TCoefficient[]) -> (PolyDivide coefficientField polyA polyB)),
+      (fun (polyA : 'TCoefficient[]) (polyB : 'TCoefficient[]) -> (PolyDivRem coefficientField polyA polyB)),
       (fun (poly : 'TCoefficient[]) -> (PolyDegree coefficientField poly) |> Option.map BigInteger)      
   )  
 
