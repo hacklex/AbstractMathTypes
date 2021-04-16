@@ -24,21 +24,24 @@ Currently, I've implemented the following algebraic structures:
 * EuclideanDomain(uniqueFactorizationDomain, valuation)
 * Field(euclideanDomain, division)
 * QuotientField(integralDomain)
+* DifferentialField(field, derivation)
 
-# Last update: QuotientField
+# Latest update: DifferentialField(field, derivation)
 
-Yes, I have just implemented it. Now we can construct quotient fields from integral domains.
-For example, as soon as we have constructed integers, we get rational numbers for free.
-I also added support for simplifying the representations when it is possible, and it
-is possible when the underlying domain is euclidean, by dividing numerator and denominator
-by their GCD. Check out the QuotientField implementation.
+Oh, yes. Those of you who knew me long enough, saw it coming from the start.
+Yes, I'll think about building differential field extensions and will eventually try implementing
+formal integration, i.e. at least those parts of Risch algorithm that I understand.
 
-By the way, as soon as we have the rationals, we instantly get Q[x], for free.
-And since Q[x] is again an euclidean domain, we get Q(x), its quotient field, for free.
+So far, though, I've only started support for differential fields. There are lots of difficulties
+in defining such stuff formally, so this would probably be a long run.
 
-Check out program.fs for the demonstration.
+What I currently plan implementing is, 
+* a mechanism for building larger differential fields from smaller ones by adjoining new elements
+* at least the most basic integration algorithm that will handle purely transcendental extensions.
 
-Yes, the literals are currently quite ugly. But hey, you've got your polys algebra at no cost!
+Don't hesitate to post an issue if you have anything to say.
+
+Don't hesitate to make a pull request if you have something to add.
 
 ## Implementation notes and issues
 
