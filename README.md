@@ -18,13 +18,29 @@ Currently, I've implemented the following algebraic structures:
 * Rng(additiveGroup, multiplicativeSemigroup)
 * Ring(additiveGroup, multiplicativeMonoid)
 * CommutativeRing(additiveGroup, multipliativeCommutativeMonoid)
-* Domain(additiveGroup,  multiplicativeMonoid)
-* IntegralDomain**(additiveGroup, multipliativeCommutativeMonoid)
-* UniqueFactorizationDomain(integralDomain, unitPart(x), normalPart(x), divRem(x, y))
+* Domain(additiveGroup, multiplicativeMonoid)
+* IntegralDomain**(additiveGroup, multipliativeCommutativeMonoid, unit(x), normal(x), unitInverse(u))
+* UniqueFactorizationDomain(integralDomain, divRem(x, y))
 * EuclideanDomain(uniqueFactorizationDomain, valuation)
 * Field(euclideanDomain, division)
+* QuotientField(integralDomain)
 
-## Notes 
+# Last update: QuotientField
+
+Yes, I have just implemented it. Now we can construct quotient fields from integral domains.
+For example, as soon as we have constructed integers, we get rational numbers for free.
+I also added support for simplifying the representations when it is possible, and it
+is possible when the underlying domain is euclidean, by dividing numerator and denominator
+by their GCD. Check out the QuotientField implementation.
+
+By the way, as soon as we have the rationals, we instantly get Q[x], for free.
+And since Q[x] is again an euclidean domain, we get Q(x), its quotient field, for free.
+
+Check out program.fs for the demonstration.
+
+Yes, the literals are currently quite ugly. But hey, you've got your polys algebra at no cost!
+
+## Implementation notes and issues
 
 (*) CommutativeMonoid is supposed to be both Monoid and CommutativeSemigroup,
 but due to F# not supporting multiple inheritance, I had to choose one, and chose to inherit Monoid. 
@@ -38,14 +54,6 @@ which theoretically it always shall be. To overcome this, IntegralDomain is prov
 member AsCommutativeRing, which provides the CommutativeRing compatibility.
 
 I am open to suggestions as to how this should be fixed to develop these types in best possible generality.
-
-# Testing
-
-To test these types, I added a (rather simple and unoptimized) implementation of rational number field Q,
-and wrote a test for polynomial division in Q[x]. Just check out program.fs to see how this works.
-
-As a nice bonus, I added a simple literal support to rational numbers, so that one could write 
-the constant polynomials in a convenient manner. For example, [| 5Q/3Q 1Q 2Q |] means 2x²+x+5/3.
 
 # Acknowledgments
 
