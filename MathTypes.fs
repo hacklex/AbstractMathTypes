@@ -455,57 +455,6 @@ type IntegerRing() =
                                   // valuation for integers is just the absolute value function
                                   (fun p -> if p = 0I then None else Some (bigint.Abs p)))
 
-/// The most plain and unoptimized implementation of rational numbers ever, probably.
-type RationalNumber(numerator: bigint, denominator: bigint) =   
-  let gcd = bigint.GreatestCommonDivisor(numerator, denominator)
-  let num = bigint.Divide(numerator, gcd)
-  let den = bigint.Divide(denominator, gcd)
-  member _.Numerator = bigint.Abs(num) * (if (numerator * denominator)>0I then 1I else -1I)
-  member _.Denominator = bigint.Abs(den)
-  member a.Add (b: RationalNumber) = 
-    RationalNumber(a.Numerator*b.Denominator + a.Denominator*b.Numerator, 
-                   a.Denominator*b.Denominator)
-  member a.Negate = RationalNumber(-a.Numerator, a.Denominator)
-  member a.Abs = RationalNumber((bigint.Abs a.Numerator), a.Denominator)
-  member a.Sign = if a.Numerator < 0I then -1I else 1I
-  member a.Invert = if a.Numerator=0I then None 
-                    else Some(RationalNumber(a.Denominator*a.Sign, a.Numerator*a.Sign))  
-  member a.Mul (b: RationalNumber) = 
-    RationalNumber(bigint.Abs(a.Numerator*b.Numerator)*a.Sign*b.Sign, a.Denominator*b.Denominator)
-  member a.Div (b: RationalNumber) =  match b.Invert with | Some c -> Some(a.Mul c) | None -> None
-  member a.IsEqualTo(b: RationalNumber) = (a.Numerator = b.Numerator) && (a.Denominator = b.Denominator)
-  member a.IsZero = a.Numerator=0I
-  static member (~-) (a: RationalNumber) = a.Negate
-  static member (+) (a: RationalNumber, b: RationalNumber) = a.Add b
-  static member (-) (a: RationalNumber, b: RationalNumber) = a.Add b.Negate
-  static member (*) (a: RationalNumber, b: RationalNumber) = a.Mul b
-  static member (/) (a: RationalNumber, b: RationalNumber) = (a.Div b).Value
-  
-/// We do want to write 5Q/7Q instead of RationalNumber(5I, 7I), so...
-module NumericLiteralQ = 
-  let FromZero() = RationalNumber(0I, 1I)
-  let FromOne() = RationalNumber(1I, 1I)
-  let FromInt32 (n: int) = RationalNumber(bigint(n), 1I)
-  let FromInt64 (n: int64) = RationalNumber(bigint(n), 1I)
-  let FromString (n: string) = RationalNumber(bigint.Parse(n), 1I)
-
-/// Trivial implementation of Q
-type RationalNumberField() = 
-  inherit (RationalNumber Field)(new CommutativeGroup<RationalNumber>(RationalNumber(0I,1I), 
-                                                  CommutativeBinaryOp<RationalNumber>(fun a b -> a.Add(b)), 
-                                                  UnaryOp<RationalNumber>(fun a -> a.Negate),
-                                                  (fun a b -> a.IsEqualTo(b))),
-                                 new CommutativeMonoid<RationalNumber>(RationalNumber(1I, 1I),
-                                                  CommutativeBinaryOp<RationalNumber>(fun a b -> a.Mul(b)),
-                                                  (fun a b ->a.IsEqualTo(b))),
-                                 (fun r -> ( RationalNumber(r.Sign, 1I), r.Abs)), 
-                                 (fun r -> if r.IsZero then None else Some(0I)),
-                                 (fun a b -> a.Div(b)))
-  /// Returns a human-readable string for given RationalNumber
-  member _.GetString (r: RationalNumber) = 
-    let inside = r.Numerator.ToString() + (if r.Denominator=1I then "" else "/" + r.Denominator.ToString())
-    if r.Numerator<0I then "(" + inside + ")" else inside
-
 /// Returns a human-readable string representation for given polynomial
 let GetPolyString<'T> (ring: 'T Ring) (coeffToString: 'T -> string) (poly: 'T[]) =
   let sb = StringBuilder()
