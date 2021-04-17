@@ -17,9 +17,9 @@ type 'T CommutativeBinaryOp(op) = inherit ('T BinaryOp)(op)
 /// Equivalence check operation, that is, reflexive symmetric transitive function t -> t -> bool
 type 'T EquivalenceCheck = 'T -> 'T -> bool
 
-let private SimpleAdd a b = a + b
-let private SimpleMultiply a b = a * b
-let private SimpleEquals a b = a = b
+let inline private SimpleAdd a b = a + b
+let inline private SimpleMultiply a b = a * b
+let inline private SimpleEquals a b = a = b
 
 let private PadArrayWith array paddingLength paddingElement = 
   if paddingLength = 0 then array 
