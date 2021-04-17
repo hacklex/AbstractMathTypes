@@ -1,41 +1,45 @@
 ﻿// Basic abstract algebra types
 open MathTypes
-
+ 
 [<EntryPoint>]
 let main argv =     
     printfn "Q(x) Quotient Field test:"
     // We start with JUST INTEGERS, nothing else. IntegerRing is the euclidean domain of integers,
     // that just defers its implementation to bigint.
-
+    let integerRing = IntegerRing()
     // We construct the field of fractions for it, and get rationals with automatic simplify
     // of fractions, i.e. we will get 1/3+1/6 = 1/2, not 3/6!
-    let rationalField = QuotientField(IntegerRing())
+    let rationalField = QuotientField(integerRing)
     // We construct the domain of univariate polynomials over Q, and get poly DivRem for free,
     // including normalization unit part is lc(f), normal part is monic poly
     let rationalPolyDomain = UnivariatePolyOverFieldDomain(rationalField)
     // finally we construct the field of fractions Q(x), for all rational functions of x,
     // and get function simplify, gcd and such, for free, just for it being a quotient field.
-    let rationalFunctionsOfX = QuotientField(rationalPolyDomain)
-    
-    let polyDerive (f: (bigint * bigint)[]) =
-      Array.mapi (fun n (a,b) -> (rationalField.Multiply (a, b) (bigint(n+1), 1I))) (Array.sub f 1 (f.Length-1))
-    
+    let rationalFunctionsOfX = QuotientField(rationalPolyDomain)      
 
-    let ratFunDifField = DifferentialField(rationalFunctionsOfX, (fun (p,q) ->         
-         let polyOne = [|(1I, 1I)|]
-         let a = (p, polyOne)
-         let b = (q, polyOne)
-         let dA = ((polyDerive p), polyOne)
-         let dB = ((polyDerive q), polyOne)         
+    let fullFrac = FullFraction rationalPolyDomain
+
+    // derivation on Q[x]
+    let polyDerive (f: (bigint Fraction)[]) =
+      Array.mapi (fun n f -> (rationalField.Multiply f (F(bigint(n+1), 1I)))) (Array.sub f 1 (f.Length-1))
+    // Q(x) is a differential field, given derivation on Q[x]:
+    let ratFunDifField = DifferentialField(rationalFunctionsOfX, (fun f ->      
+         let (p,q) = FullFraction rationalPolyDomain f         
+         let a = N p
+         let b = N q
+         let dA = N(polyDerive p)
+         let dB = N(polyDerive q)         
          let nume = (rationalFunctionsOfX.Subtract (rationalFunctionsOfX.Multiply dA b)
                                                    (rationalFunctionsOfX.Multiply a dB))
-         let deno = rationalFunctionsOfX.Multiply (q, polyOne) (q, polyOne)
+         let deno = rationalFunctionsOfX.Multiply (N q) (N q)
          (rationalFunctionsOfX.Divide nume deno).Value
         )
     )
 
     // surely we'd love pretty-printing our polys
-    let getQPolyString = GetPolyString rationalField (fun (a,b) -> if a=0I then "0"
+    let getQPolyString = GetPolyString rationalField (fun frac -> 
+                                                                   let (a,b) = (FullFraction integerRing frac)
+                                                                   if a=0I then "0"
                                                                    else if b=1I then if a<0I 
                                                                                      then "("+a.ToString()+")"
                                                                                      else a.ToString()
@@ -43,17 +47,19 @@ let main argv =
                                                                    then "("+a.ToString()+"/"+b.ToString()+")"
                                                                    else a.ToString()+"/"+b.ToString() )
      
+    let getQRatFunString = GetFracString rationalPolyDomain getQPolyString
+    
     // the literals are ugly so far, but even with those we can feel the power of abstract algebra
     // here, we construct f(x)=(x+1)/(x²+1) and g(x)=(x-2)/(x²+4)
-    let f = ( [|(1I, 1I) ; (1I, 1I)|], [|(1I, 1I) ; (0I, 1I) ; (1I, 1I)|] )
-    let g = ( [|(-2I, 1I) ; (1I, 1I)|], [|(4I, 1I) ; (0I, 1I) ; (1I, 1I)|] )
+    let f = F( [|N 1I; N 2I; N 1I|], [|N 5I; N 1I|] )
+    let g = F( [|N 2I; N 1I|], [|N 1I|] )
     // let's test adding those two
-    let (sumNum, sumDen) = rationalFunctionsOfX.Add f g
-
-    printfn "(%s)/(%s)  +  (%s)/(%s)   =   (%s)/(%s)" (getQPolyString (fst f)) (getQPolyString (snd f))
-                                                      (getQPolyString (fst g)) (getQPolyString (snd g))
-                                                      (getQPolyString sumNum) (getQPolyString sumDen)
+    let (sumNum, sumDen) = rationalFunctionsOfX.Add f g |> fullFrac
     
+    printfn "%s  +  %s   =   %s" (getQRatFunString f)
+                                                      (getQRatFunString g)
+                                                      (getQRatFunString (F(sumNum, sumDen)))
+    // now let's do some calculus-pre-I
     printfn ""
     printfn "Derivation test"
     printfn ""
@@ -64,10 +70,10 @@ let main argv =
     
     printfn ""
 
-    let (dn, dd) = ratFunDifField.Derive (sumNum, sumDen)
+    let (dn, dd) = ratFunDifField.Derive (F(sumNum, sumDen)) |> fullFrac
 
     printfn "D[(%s)/(%s)] = %s (%s)/(%s)" (getQPolyString sumNum) (getQPolyString sumDen)
                                        (System.Environment.NewLine)
                                        (getQPolyString dn) (getQPolyString dd)
 
-    0 // return an integer exit code
+    0 // This is fine ©

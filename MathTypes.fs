@@ -223,67 +223,91 @@ type 'T Field(additiveGroup : 'T CommutativeGroup,
   member _.AdditiveGroup = additiveGroup
   member _.MultiplicativeCommutativeMonoid = multiplicativeCommutativeMonoid
 
+type Fraction<'T> = 
+  | F of ('T*'T)
+  | N of 'T
+  | Zero 
+  | One 
 
-let private QuotientNormalize<'T> (domain: 'T IntegralDomain) ((num, den) : 'T*'T) = 
+let Numerator (ring: 'T Ring) (fraction: 'T Fraction) = 
+  match fraction with | F (a, _) -> a | N n -> n | Zero -> ring.Zero | One -> ring.One
+let Denominator (ring: 'T Ring) (fraction: 'T Fraction) = 
+  match fraction with | F (_, b) -> b | _ -> ring.One
+let FullFraction (ring: 'T Ring) (x: 'T Fraction) = 
+    match x with
+    | F a -> a
+    | N n -> (n, ring.One)
+    | Zero -> (ring.Zero, ring.One)
+    | One -> (ring.One, ring.One)
+
+let private QuotientNormalize (domain: 'T IntegralDomain) (fraction : 'T Fraction) = 
+  let (num, den) = FullFraction domain fraction
   let finalUnitPart = domain.Multiply (domain.UnitPart num) (domain.UnitInverse (domain.UnitPart den))  
-  ((domain.Multiply finalUnitPart (domain.NormalPart num)), (domain.NormalPart den))
+  F((domain.Multiply finalUnitPart (domain.NormalPart num)), (domain.NormalPart den))
 
-let private QuotientUnitAndNormalParts<'T> (domain: 'T IntegralDomain) ((num,den): 'T*'T) = 
-  let (normNum, normDen) = QuotientNormalize domain (num, den)
-  ( ((domain.UnitPart normNum), domain.One), ( (domain.NormalPart normNum), normDen ) )
 
-let private QuotientCompact<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) =
+let private QuotientUnitAndNormalParts (domain: 'T IntegralDomain) (fraction: 'T Fraction) : ('T Fraction * 'T Fraction) = 
+  let (normNum, normDen) = (FullFraction domain (QuotientNormalize domain fraction))
+  F((domain.UnitPart normNum), domain.One), F((domain.NormalPart normNum), normDen) 
+  
+let private QuotientCompact (domain: 'T IntegralDomain) (fraction: 'T Fraction) : 'T Fraction =
+  let (a,b) = FullFraction domain fraction
   match domain with
   | :? EuclideanDomain<'T> -> let ed = domain :?> 'T EuclideanDomain
                               let gcd = ed.Gcd(a, b)
-                              if gcd.IsNone then (domain.Zero, domain.One)
+                              if gcd.IsNone then F(domain.Zero, domain.One)
                               else let cd = gcd.Value
-                                   QuotientNormalize domain ((ed.Div a cd).Value, (ed.Div b cd).Value)
-  | _ -> QuotientNormalize domain (a, b)  
+                                   QuotientNormalize domain (F((ed.Div a cd).Value, (ed.Div b cd).Value))
+  | _ -> QuotientNormalize domain (F(a, b))  
 
-let private QuotientAdd<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) ((c,d): 'T*'T) = 
+let private QuotientAdd (domain: 'T IntegralDomain) (x: 'T Fraction) (y: 'T Fraction) = 
+  let (a,b) = FullFraction domain x
+  let (c,d) = FullFraction domain y
   let num = domain.Add (domain.Multiply a d) (domain.Multiply b c)
   let den = domain.Multiply b d
-  QuotientCompact domain (num, den)                            
+  QuotientCompact domain (F(num, den))
 
-let private QuotientNegate<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) =
-  ((domain.Negate a), b)
+let private QuotientNegate (domain: 'T IntegralDomain) (f: 'T Fraction) =
+  let (a,b) = FullFraction domain f
+  F((domain.Negate a), b)
 
-let private QuotientSubtract<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) ((c,d): 'T*'T) = 
-  QuotientAdd domain (a,b) (QuotientNegate domain (c,d))
+let private QuotientSubtract (domain: 'T IntegralDomain) (a: 'T Fraction) (b: 'T Fraction) =     
+  QuotientAdd domain a (QuotientNegate domain b)
 
-let private QuotientMultiply<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) ((c,d): 'T*'T) =   
+let private QuotientMultiply (domain: 'T IntegralDomain) (p: 'T Fraction) (q: 'T Fraction) =   
+  let (a,b) = FullFraction domain p
+  let (c,d) = FullFraction domain q
   let num = domain.Multiply a c
   let den = domain.Multiply b d
-  QuotientCompact domain (num, den)   
+  QuotientCompact domain (F(num, den))   
 
-let private QuotientCompare<'T> (domain: 'T IntegralDomain) (a: 'T*'T) (b: 'T*'T) =    
-  domain.IsZero.Invoke (fst (QuotientSubtract domain a b))
+let private QuotientCompare (domain: 'T IntegralDomain) (a: 'T Fraction) (b: 'T Fraction) =    
+  domain.IsZero.Invoke (Numerator domain (QuotientSubtract domain a b))
 
-let private QuotientDivide<'T> (domain: 'T IntegralDomain) ((a,b): 'T*'T) ((c,d): 'T*'T) =     
+let private QuotientDivide (domain: 'T IntegralDomain) (p: 'T Fraction) (q: 'T Fraction) =     
+  let (a,b) = FullFraction domain p
+  let (c,d) = FullFraction domain q  
   if (domain.Compare c domain.Zero) then None
   else if (domain.Compare a domain.Zero) 
-  then Some((domain.Zero, domain.One)) else        
+  then Some(F(domain.Zero, domain.One)) else        
     let (numUnit, numAbs) = (domain.UnitAndNormalParts (domain.Multiply a d))
     let (denUnit, denAbs) = (domain.UnitAndNormalParts (domain.Multiply b c))
     let unitPart = domain.Multiply numUnit (domain.UnitInverse denUnit)
     let num = domain.Multiply unitPart numAbs
     let den = denAbs
-    Some(QuotientCompact domain (num, den))
-
-
+    Some(QuotientCompact domain (F(num, den)))
 
 type QuotientField<'T> (domain: 'T IntegralDomain) =
-  inherit  Field<'T * 'T>(
-      CommutativeGroup((domain.Zero, domain.One), 
+  inherit  Field<'T Fraction>(
+      CommutativeGroup(F(domain.Zero, domain.One), 
                        CommutativeBinaryOp(QuotientAdd domain),
                        UnaryOp(QuotientNegate domain),
                        QuotientCompare domain),
-      CommutativeMonoid((domain.One, domain.One),
+      CommutativeMonoid(F(domain.One, domain.One),
                         CommutativeBinaryOp(QuotientMultiply domain),
                         QuotientCompare domain),
       QuotientUnitAndNormalParts domain,
-      (fun (a,_) -> if (domain.IsZero.Invoke(a)) then None else Some(0I)),
+      (fun p -> if (domain.IsZero.Invoke((Numerator domain p))) then None else Some(0I)),
       QuotientDivide domain
   )
 
@@ -457,6 +481,7 @@ type IntegerRing() =
 
 /// Returns a human-readable string representation for given polynomial
 let GetPolyString<'T> (ring: 'T Ring) (coeffToString: 'T -> string) (poly: 'T[]) =
+  if poly.Length=0 then "0" else
   let sb = StringBuilder()
   let coefWrite (index:int) coef = 
     if index = 0 then (coeffToString coef) else      
@@ -472,7 +497,13 @@ let GetPolyString<'T> (ring: 'T Ring) (coeffToString: 'T -> string) (poly: 'T[])
     if cfNotZero then 
       sb.Append((coefWrite deg (cf i)) ) |> ignore
   sb.ToString()
-  
+ 
+/// Returns a human-readable string representation for given fraction
+let GetFracString<'T> (ring: 'T Ring) (itemToString: 'T -> string) (frac: 'T Fraction) = 
+  let (a,b) = FullFraction ring frac
+  if ring.IsZero.Invoke(a) then "0" else
+  if ring.Compare ring.One b then "(" + (itemToString a) + ")" else
+  "(" + (itemToString a) + ")/(" + (itemToString b) + ")"
 
 /// Usual polynomials with integer coefficients
 type IntegerUnivariatePolyRing() = 
