@@ -25,14 +25,35 @@ Currently, I've implemented the following algebraic structures:
 * Field(euclideanDomain, division)
 * QuotientField(integralDomain)
 * DifferentialField(field, derivation)
+* AlgebraicExtensionPolyField(field, minimalPoly)
 
-# Latest update: DifferentialField(field, derivation)
+# Latest update: Extended Euclidean Algorithm and AlgebraicExtensionPolyField 
 
-Oh, yes. Those of you who knew me long enough, saw it coming from the start.
-Yes, I'll think about building differential field extensions and will eventually try implementing
-formal integration, i.e. at least those parts of Risch algorithm that I understand.
+Well, one leads to another. We basically construct the quotient ring for the minimal polynomial
+of an algebraic number, and since it's a good, irreducible, well-behaved minimal polynomial with a 
+perfect record and no crimes committed, the quotient ring is actually a field.
 
-So far, though, I've only started support for differential fields. There are lots of difficulties
+So the most important thing is that we can divide here. Indeed, let p(t) be the minimal polynomial,
+then for any f(t), Extended Euclidean Algorithm gives us a(t) and b(t) such that p(t)a(t)+f(t)b(t)=1.
+Then it is obvious that b(t) is the multiplicative inverse of f(t), because in our field, p(t)=0 (mod p(t)).
+
+Program.fs currently contains two usage examples.
+
+First one proves that if t=sqrt(-2), then
+
+1/(1+t) = (1/3) + (-1/3)*t
+
+Second one proves that if t=sqrt(1+x), then
+
+1/(1+t) = (-1/x) + (1/x)*t
+
+Note how the algebraic extension field type is implemented in full generality, as it does not care
+whether the adjoining element is a simple radical, or just a root of a polynomial, that may not necessarily
+be expressed by radicals.
+
+# Differential Fields
+
+So far, I've only started support for differential fields. There are lots of difficulties
 in defining such stuff formally, so this would probably be a long run.
 
 What I currently plan implementing is, 
