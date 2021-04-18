@@ -75,5 +75,29 @@ let main argv =
     printfn "D[(%s)/(%s)] = %s (%s)/(%s)" (getQPolyString sumNum) (getQPolyString sumDen)
                                        (System.Environment.NewLine)
                                        (getQPolyString dn) (getQPolyString dd)
+                                       
+    printfn ""
+    printfn "Now testing algebraic extensions of Q:"
+    printfn ""
+    let minimalPoly = [|N 2I; N 0I; N 1I |]
+    printfn "let K = Q[x]/(%s)" (getQPolyString minimalPoly)
+    printfn ""
+    let algExOfQ = AlgebraicExtensionPolyField(rationalField, minimalPoly)
+    let divTest = algExOfQ.Divide algExOfQ.One [| N 1I; N 1I |]
+
+    printfn "Then 1/(%s) = %s" (getQPolyString [| N 1I; N 1I |]) (getQPolyString divTest.Value)
+    
+    printfn ""
+    printfn "Now testing algebraic extensions of Q(x):"    
+    printfn ""
+
+    let minimalPoly = [| N [| N -1I; N -1I|]; rationalFunctionsOfX.Zero; rationalFunctionsOfX.One |]
+    let algExOfQx = AlgebraicExtensionPolyField(rationalFunctionsOfX, minimalPoly)
+
+    printfn "let K = Q(x)[t]/(t^2-x-1)"
+    
+    let dr = (algExOfQx.Divide algExOfQx.One [| N [| N 1I |]; N [| N 1I |] |]).Value
+    
+    printfn "1/(1 + sqrt(x + 1)) = %s + (%s)*sqrt(x + 1)" (getQRatFunString dr.[0]) (getQRatFunString dr.[1])
 
     0 // This is fine ©
