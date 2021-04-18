@@ -206,7 +206,29 @@ type 'T EuclideanDomain(additiveGroup: 'T CommutativeGroup,
         c <- d
         d <- r
       Some (this.NormalPart c)
-     
+  // extended euclidean algorithm, (a,b) -> (s,t) such that as+bt = 1
+  member this.Eea(a, b) = 
+    let mutable c = this.NormalPart a
+    let mutable d = this.NormalPart b 
+    let mutable c1 = this.One
+    let mutable d1 = this.Zero
+    let mutable c2 = this.Zero
+    let mutable d2 = this.One
+    while this.IsNotZero.Invoke(d) do
+      let q = (this.Div c d).Value  
+      let r = this.Subtract c (this.Multiply q d)
+      let r1 = this.Subtract c1 (this.Multiply q d1)
+      let r2 = this.Subtract c2 (this.Multiply q d2)
+      c <- d
+      c1 <- d1
+      c2 <- d2
+      d <- r
+      d1 <- r1
+      d2 <- r2
+    let g = this.NormalPart c
+    let s = this.Multiply c1 (this.Multiply (this.UnitInverse (this.UnitPart a)) (this.UnitInverse (this.UnitPart c)))
+    let t = this.Multiply c2 (this.Multiply (this.UnitInverse (this.UnitPart b)) (this.UnitInverse (this.UnitPart c)))
+    (s,t)
 type 'T Field(additiveGroup : 'T CommutativeGroup,
               multiplicativeCommutativeMonoid : 'T CommutativeMonoid,
               unitAndNormalParts: 'T -> ('T * 'T),              
