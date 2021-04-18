@@ -229,6 +229,9 @@ type 'T EuclideanDomain(additiveGroup: 'T CommutativeGroup,
     let s = this.Multiply c1 (this.Multiply (this.UnitInverse (this.UnitPart a)) (this.UnitInverse (this.UnitPart c)))
     let t = this.Multiply c2 (this.Multiply (this.UnitInverse (this.UnitPart b)) (this.UnitInverse (this.UnitPart c)))
     (s,t)
+    
+/// Field. Pinnacle of ring evolution. Strongest of structures.
+/// Ok just kidding. Differential fields coming, soon.
 type 'T Field(additiveGroup : 'T CommutativeGroup,
               multiplicativeCommutativeMonoid : 'T CommutativeMonoid,
               unitAndNormalParts: 'T -> ('T * 'T),              
@@ -243,18 +246,22 @@ type 'T Field(additiveGroup : 'T CommutativeGroup,
   member _.Divide a b = divide a b
   member _.Invert a = (divide multiplicativeCommutativeMonoid.NeutralElement a)
   member _.AdditiveGroup = additiveGroup
-  member _.MultiplicativeCommutativeMonoid = multiplicativeCommutativeMonoid
+  member _.MultiplicativeCommutativeMonoid = multiplicativeCommutativeMonoid   
 
+/// the Fraction type allows for less bulky literal construction
 type Fraction<'T> = 
   | F of ('T*'T)
   | N of 'T
   | Zero 
   | One 
 
+/// Extracts the numerator of a fraction. Think (fst f). Or car, if you're rusty enough ;)
 let Numerator (ring: 'T Ring) (fraction: 'T Fraction) = 
   match fraction with | F (a, _) -> a | N n -> n | Zero -> ring.Zero | One -> ring.One
+/// Extracts the denominator of a fraction. Think (snd f). Or cdr, if you know what I mean ;)
 let Denominator (ring: 'T Ring) (fraction: 'T Fraction) = 
   match fraction with | F (_, b) -> b | _ -> ring.One
+/// Downgrades the fraction to a tuple (numerator, denominator), taking redundant values from given ring
 let FullFraction (ring: 'T Ring) (x: 'T Fraction) = 
     match x with
     | F a -> a
@@ -262,16 +269,18 @@ let FullFraction (ring: 'T Ring) (x: 'T Fraction) =
     | Zero -> (ring.Zero, ring.One)
     | One -> (ring.One, ring.One)
 
+/// Normalizes the fraction, extracting the unit part to the numerator
 let private QuotientNormalize (domain: 'T IntegralDomain) (fraction : 'T Fraction) = 
   let (num, den) = FullFraction domain fraction
   let finalUnitPart = domain.Multiply (domain.UnitPart num) (domain.UnitInverse (domain.UnitPart den))  
   F((domain.Multiply finalUnitPart (domain.NormalPart num)), (domain.NormalPart den))
 
-
+/// gets unit and normal parts of the fraction
 let private QuotientUnitAndNormalParts (domain: 'T IntegralDomain) (fraction: 'T Fraction) : ('T Fraction * 'T Fraction) = 
   let (normNum, normDen) = (FullFraction domain (QuotientNormalize domain fraction))
   F((domain.UnitPart normNum), domain.One), F((domain.NormalPart normNum), normDen) 
   
+/// reduces the fraction if possible, dividing numerator and denominator by their gcd, when possible
 let private QuotientCompact (domain: 'T IntegralDomain) (fraction: 'T Fraction) : 'T Fraction =
   let (a,b) = FullFraction domain fraction
   match domain with
@@ -282,20 +291,21 @@ let private QuotientCompact (domain: 'T IntegralDomain) (fraction: 'T Fraction) 
                                    QuotientNormalize domain (F((ed.Div a cd).Value, (ed.Div b cd).Value))
   | _ -> QuotientNormalize domain (F(a, b))  
 
+/// adds two fractions
 let private QuotientAdd (domain: 'T IntegralDomain) (x: 'T Fraction) (y: 'T Fraction) = 
   let (a,b) = FullFraction domain x
   let (c,d) = FullFraction domain y
   let num = domain.Add (domain.Multiply a d) (domain.Multiply b c)
   let den = domain.Multiply b d
   QuotientCompact domain (F(num, den))
-
+/// negates a fraction
 let private QuotientNegate (domain: 'T IntegralDomain) (f: 'T Fraction) =
   let (a,b) = FullFraction domain f
   F((domain.Negate a), b)
-
+/// subtracts fraction b from fraction a
 let private QuotientSubtract (domain: 'T IntegralDomain) (a: 'T Fraction) (b: 'T Fraction) =     
   QuotientAdd domain a (QuotientNegate domain b)
-
+/// multiplies fraction p by fraction q
 let private QuotientMultiply (domain: 'T IntegralDomain) (p: 'T Fraction) (q: 'T Fraction) =   
   let (a,b) = FullFraction domain p
   let (c,d) = FullFraction domain q
@@ -303,9 +313,10 @@ let private QuotientMultiply (domain: 'T IntegralDomain) (p: 'T Fraction) (q: 'T
   let den = domain.Multiply b d
   QuotientCompact domain (F(num, den))   
 
+/// returns true if fraction a equals fraction b, otherwise false
 let private QuotientCompare (domain: 'T IntegralDomain) (a: 'T Fraction) (b: 'T Fraction) =    
   domain.IsZero.Invoke (Numerator domain (QuotientSubtract domain a b))
-
+/// divides fraction p by fraction q
 let private QuotientDivide (domain: 'T IntegralDomain) (p: 'T Fraction) (q: 'T Fraction) =     
   let (a,b) = FullFraction domain p
   let (c,d) = FullFraction domain q  
@@ -318,7 +329,7 @@ let private QuotientDivide (domain: 'T IntegralDomain) (p: 'T Fraction) (q: 'T F
     let num = domain.Multiply unitPart numAbs
     let den = denAbs
     Some(QuotientCompact domain (F(num, den)))
-
+/// Field of fractions constructed from an Euclidean Domain 
 type QuotientField<'T> (domain: 'T IntegralDomain) =
   inherit  Field<'T Fraction>(
       CommutativeGroup(F(domain.Zero, domain.One), 
@@ -333,6 +344,7 @@ type QuotientField<'T> (domain: 'T IntegralDomain) =
       QuotientDivide domain
   )
 
+/// Shortcut to make A*x^n
 let Monomial<'T> (ring: 'T Ring) degree (coefficient: 'T) = 
   [| yield! (Array.create degree ring.Zero); coefficient |]
 
@@ -340,17 +352,21 @@ let Monomial<'T> (ring: 'T Ring) degree (coefficient: 'T) =
 let private PolyComparison<'T> (ring : 'T Ring) (polyA :'T[]) (polyB : 'T[]) = 
   (polyA.Length = polyB.Length) && Seq.forall2 ring.Compare polyA polyB
 
+/// Truncates the polynomial, removing trailing zeros
 let private CompactPoly<'T> (ring: 'T Ring) (poly: 'T[]) = 
   let lastNonZero = array.FindLastIndex(poly, ring.IsNotZero)
   Array.sub poly.[..lastNonZero] 0 (lastNonZero + 1)
 
+/// returns the integer degree of the input polynomial
 let private PolyDegree<'T> (ring: 'T Ring) (poly: 'T[]) = 
   if poly.Length < 1 then None else Some(array.FindLastIndex(poly, ring.IsNotZero))
   
+/// returns the leading coefficient of the input polynomial
 let private PolyLc<'T> (ring: 'T Ring) (poly: 'T[]) = 
   let lastNonZero = array.FindLastIndex(poly, ring.IsNotZero)
   poly.[lastNonZero]
 
+/// adds two polynomials and returns the result
 let private PolyAdd<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) = 
   let zero = ring.Zero
   let l1 = if polyA.Length > polyB.Length then polyA else polyB
@@ -360,12 +376,15 @@ let private PolyAdd<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) =
   let resultArray = Array.map2 ring.Add l1 l2
   CompactPoly ring resultArray
 
+/// negates the input polynomial
 let private PolyNegate<'T> (ring: 'T Ring) (poly: 'T[]) = 
   Array.map ring.Negate poly
 
+/// subtracts polyB from polyA
 let private PolySubtract<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) = 
   PolyAdd ring polyA (PolyNegate ring polyB)
 
+/// multiplies polyA by polyB
 let private PolyMultiply<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) =   
   let mul i j = ring.Multiply polyA.[i] polyB.[j] // to save horizontal screen space
   let resultingDegree = polyA.Length + polyB.Length
@@ -379,6 +398,7 @@ let private PolyMultiply<'T> (ring: 'T Ring) (polyA: 'T[]) (polyB: 'T[]) =
   // For example, (2x)(3x+1) is just 2x in Z6[x].
     CompactPoly ring result
 
+/// Performs the polynomial division. Requires the coefficients to be from a field.
 let private PolyDivRem<'T> (coefField: 'T Field) (polyA: 'T[]) (polyB: 'T[]) = 
   let deg = PolyDegree coefField
   let vdeg poly = match (deg poly) with | None -> -1 | Some(i) -> i
@@ -396,11 +416,14 @@ let private PolyDivRem<'T> (coefField: 'T Field) (polyA: 'T[]) (polyB: 'T[]) =
             (div, rem)
            )
 
-
-let private GetPolyNormalPart<'T> (ufd: 'T UniqueFactorizationDomain) (poly: 'T[]) = 
-   if not(Array.Exists(poly, ufd.IsNotZero)) then poly else 
-       let unitPart = ufd.UnitPart (PolyLc ufd poly)
-       Array.map (fun c -> (ufd.Div c unitPart).Value) poly
+/// Calculates unit and normal parts for a polynomial with coefficients from a field
+/// Unit part is the leading coefficient [| LC |], and the normal part is the monic polynomial poly * [| 1/LC |]
+let private PolyUnitAndNormalParts<'T> (coefficientField: 'T Field) (poly: 'T[]) = 
+   if Array.Exists(poly, coefficientField.IsNotZero) 
+   then ([| PolyLc coefficientField poly |], 
+         ( PolyMultiply coefficientField poly 
+                        [| (coefficientField.Divide coefficientField.One (PolyLc coefficientField poly)).Value |] ))           
+   else ([| coefficientField.One |], [||])
 
 /// <summary>
 /// Additive group of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
@@ -424,8 +447,7 @@ type 'TCoefficient UnivariatePolynomialAdditiveGroup(coefficientRing: 'TCoeffici
       //polynomial negation
       new UnaryOp<'TCoefficient[]>(fun poly -> Array.map coefficientRing.Negate poly), 
       PolyComparison coefficientRing)
-      
-       
+
 /// <summary>
 /// Multiplicative monoid of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
 /// The coefficient ring structure dictates the ring operations on the polynomials.
@@ -442,8 +464,9 @@ type 'TCoefficient UnivariatePolynomialMultiplicativeMonoid(coefficientRing: 'TC
     (PolyComparison coefficientRing))
 
 /// <summary>
-/// Multiplicative monoid of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
+/// Commutative multiplicative monoid of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
 /// The coefficient ring structure dictates the ring operations on the polynomials.
+/// This is so sad that we have to duplicate the above type due to lack of multiple inheritance in F#.
 /// Note that K[x] is merely a ring in general, and only becomes a field if x is algebraic over K.
 /// </summary>
 type 'TCoefficient UnivariatePolynomialMultiplicativeCommutativeMonoid(coefficientRing: 'TCoefficient CommutativeRing) = 
@@ -478,12 +501,12 @@ type 'TCoefficient UnivariatePolyOverFieldDomain(coefficientField : 'TCoefficien
       (fun (poly : 'TCoefficient[]) -> (PolyDegree coefficientField poly) |> Option.map BigInteger)      
   )  
 
+/// A functional field with given derivation
 type 'T DifferentialField(functionField: 'T Field, derive : 'T -> 'T) = 
   inherit ('T Field)(functionField.AdditiveGroup, functionField.MultiplicativeCommutativeMonoid,
                      functionField.UnitAndNormalParts, functionField.Valuation, functionField.Divide)
   member _.Derive = derive
   
-
 /// Regular integers as an Euclidean Domain
 type IntegerRing() = 
   inherit EuclideanDomain<bigint>((new CommutativeGroup<bigint>(0I, 
