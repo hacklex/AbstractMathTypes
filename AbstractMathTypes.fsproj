@@ -6,6 +6,12 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Compile Include="CacheHelpers.fs" />
+    <Compile Include="AbstractAlgebra.fs" />
+    <Compile Include="Fractions.fs" />
+    <Compile Include="Polynomials.fs" />
+    <Compile Include="FieldExtensions.fs" />
+    <Compile Include="DifferentialAlgebra.fs" />
     <Compile Include="MathTypes.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

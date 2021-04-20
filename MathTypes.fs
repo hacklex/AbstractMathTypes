@@ -117,6 +117,17 @@ type 'T Ring(additiveGroup: 'T CommutativeGroup,
              multiplicativeMonoid: 'T Monoid) = 
   inherit ('T Rng)(additiveGroup, multiplicativeMonoid)
   member _.One = multiplicativeMonoid.NeutralElement
+  abstract member IntegerConstant : int -> 'T 
+  default this.IntegerConstant (n) = 
+    let mutable multiply = if n<0 then (this.Negate this.One) else this.One
+    let mutable count = if n<0 then -n else n
+    let mutable sum = this.Zero
+    while count>0 do      
+      if (count%2=1) then sum <- this.Add sum multiply
+      count <- count / 2
+      multiply <- this.Add multiply multiply
+    sum
+     
 
 /// <summary>
 /// Commutative ring from elements of type <typeparamref name="'T">'T</typeparamref> 
@@ -341,8 +352,8 @@ type QuotientField<'T> (domain: 'T IntegralDomain) =
                         QuotientCompare domain),
       QuotientUnitAndNormalParts domain,
       (fun p -> if (domain.IsZero.Invoke((Numerator domain p))) then None else Some(0I)),
-      QuotientDivide domain
-  )
+      QuotientDivide domain)
+  override this.IntegerConstant (n) = N (domain.IntegerConstant n)
 
 /// Shortcut to make A*x^n
 let Monomial<'T> (ring: 'T Ring) degree (coefficient: 'T) = 
@@ -431,11 +442,8 @@ let private PolyUnitAndNormalParts<'T> (coefficientField: 'T Field) (poly: 'T[])
 /// Note that K[x] is only a ring in general, and only becomes a field if x is algebraic over K.
 /// </summary>
 type 'TCoefficient UnivariatePolynomialAdditiveGroup(coefficientRing: 'TCoefficient Ring) = 
-  inherit CommutativeGroup<'TCoefficient[]>(
-      //zero polynomial
-      Array.empty, 
-      //polynomial addition
-      new ('TCoefficient[] CommutativeBinaryOp)(fun polyA polyB -> 
+  inherit CommutativeGroup<'TCoefficient[]>(Array.empty, 
+      CommutativeBinaryOp<'TCoefficient[]>(fun polyA polyB -> 
         let zero = coefficientRing.Zero
         let l1 = if polyA.Length > polyB.Length then polyA else polyB
         let l2small = if polyA.Length > polyB.Length then polyB else polyA
@@ -444,8 +452,7 @@ type 'TCoefficient UnivariatePolynomialAdditiveGroup(coefficientRing: 'TCoeffici
         let resultArray = Array.map2 coefficientRing.Add l1 l2
         CompactPoly coefficientRing resultArray
       ), 
-      //polynomial negation
-      new UnaryOp<'TCoefficient[]>(fun poly -> Array.map coefficientRing.Negate poly), 
+      UnaryOp<'TCoefficient[]>(fun poly -> Array.map coefficientRing.Negate poly), 
       PolyComparison coefficientRing)
 
 /// <summary>
@@ -454,14 +461,9 @@ type 'TCoefficient UnivariatePolynomialAdditiveGroup(coefficientRing: 'TCoeffici
 /// Note that K[x] is merely a ring in general, and only becomes a field if x is algebraic over K.
 /// </summary>
 type 'TCoefficient UnivariatePolynomialMultiplicativeMonoid(coefficientRing: 'TCoefficient Ring) = 
-  inherit Monoid<'TCoefficient[]>(
-    // multiplicative identity polynomial, i.e. just one constant coefficient "1"
-    [| coefficientRing.One |], 
-    // Polynomial multiplication. By the time I was writing this one, I was so exhausted 
-    // that I actually double-checked in a CAS that deg (p*q) = deg(p)+deg(q) -_-
-    (new ('TCoefficient[] BinaryOp)(PolyMultiply coefficientRing)), 
-    // glory to the curry!
-    (PolyComparison coefficientRing))
+  inherit Monoid<'TCoefficient[]>([| coefficientRing.One |], 
+    BinaryOp<'TCoefficient[]>(PolyMultiply coefficientRing), 
+    PolyComparison coefficientRing)
 
 /// <summary>
 /// Commutative multiplicative monoid of Univariate Polynomials with coefficients in <paramref name="coefficientRing"/>.
@@ -470,20 +472,40 @@ type 'TCoefficient UnivariatePolynomialMultiplicativeMonoid(coefficientRing: 'TC
 /// Note that K[x] is merely a ring in general, and only becomes a field if x is algebraic over K.
 /// </summary>
 type 'TCoefficient UnivariatePolynomialMultiplicativeCommutativeMonoid(coefficientRing: 'TCoefficient CommutativeRing) = 
-  inherit CommutativeMonoid<'TCoefficient[]>(
-    // multiplicative identity polynomial, i.e. just one constant coefficient "1"
-    [| coefficientRing.One |], 
-    // Polynomial multiplication. By the time I was writing this one, I was so exhausted 
-    // that I actually double-checked in a CAS that deg (p*q) = deg(p)+deg(q) -_-
-    (new ('TCoefficient[] CommutativeBinaryOp)(PolyMultiply coefficientRing)), 
-    // glory to the curry!
+  inherit CommutativeMonoid<'TCoefficient[]>([| coefficientRing.One |], 
+    CommutativeBinaryOp<'TCoefficient[]>(PolyMultiply coefficientRing),
     PolyComparison coefficientRing)
     
+type PolyMultiplicativeMonoid<'TCoefficient, 'TRing> when 'TRing :> Ring<'TCoefficient> (coefficientRing: 'TRing) = 
+  inherit Monoid<'TCoefficient[]>([|coefficientRing.One|],
+    BinaryOp<'TCoefficient[]>(PolyMultiply coefficientRing),
+    PolyComparison coefficientRing)
+type PolyMultiplicativeCommMonoid<'TCoefficient, 'TRing> when 'TRing :> CommutativeRing<'TCoefficient> (coefficientRing: 'TRing) = 
+  inherit CommutativeMonoid<'TCoefficient[]>([|coefficientRing.One|],
+    CommutativeBinaryOp<'TCoefficient[]>(PolyMultiply coefficientRing),
+    PolyComparison coefficientRing)
+
+type PolyConstruction = class
+  static member MakePolyMulMonoid(coefficientRing: 'T CommutativeRing) = 
+    PolyMultiplicativeCommMonoid(coefficientRing)
+  static member MakePolyMulMonoid(coefficientRing: 'T Ring) = 
+    PolyMultiplicativeMonoid(coefficientRing)
+end
+
+let polyMaker coefficientRing = PolyConstruction.MakePolyMulMonoid coefficientRing
+
+let testRing = CommutativeRing(CommutativeGroup(0, CommutativeBinaryOp(fun a b -> a+b), UnaryOp(fun a -> -a), (fun a b -> a=b )), CommutativeMonoid(1, CommutativeBinaryOp(fun a b -> a*b), fun a b -> a=b ) )
+
+let riPoly = PolyConstruction.MakePolyMulMonoid testRing
+
+
+
 /// Polynomial ring with arbitrary coefficient ring
 type 'TCoefficient UnivariatePolynomialRing(coefficientRing : 'TCoefficient Ring) =
   inherit Ring<'TCoefficient[]>(
     (new ('TCoefficient UnivariatePolynomialAdditiveGroup)(coefficientRing)), 
     (new ('TCoefficient UnivariatePolynomialMultiplicativeMonoid)(coefficientRing)))
+  override this.IntegerConstant (n) = [| coefficientRing.IntegerConstant n |]
 
 /// Polynomial ring with coefficients from a field, which allows poly division
 type 'TCoefficient UnivariatePolyOverFieldDomain(coefficientField : 'TCoefficient Field) =
@@ -498,8 +520,9 @@ type 'TCoefficient UnivariatePolyOverFieldDomain(coefficientField : 'TCoefficien
                               [| (coefficientField.Divide coefficientField.One (PolyLc coefficientField poly)).Value |] ))           
          else ([| coefficientField.One |], [||])),
       (fun (polyA : 'TCoefficient[]) (polyB : 'TCoefficient[]) -> (PolyDivRem coefficientField polyA polyB)),
-      (fun (poly : 'TCoefficient[]) -> (PolyDegree coefficientField poly) |> Option.map BigInteger)      
-  )  
+      (fun (poly : 'TCoefficient[]) -> (PolyDegree coefficientField poly) |> Option.map BigInteger))   
+  override this.IntegerConstant (n) = [| coefficientField.IntegerConstant n |]
+
 /// Multiplicative monoid that represents an algebraic extension of a field, 
 /// given the minimal polynomial of the element to be adjoined 
 type 'TCoefficient AlgebraicElementPolyMultiplicativeMonoid(coefficientField: 'TCoefficient Field, minimalPoly: 'TCoefficient[])=
@@ -514,7 +537,7 @@ type 'TCoefficient AlgebraicElementPolyMultiplicativeMonoid(coefficientField: 'T
 /// as well as elements that cannot be expressed by radicals.
 /// Basically, it's a quotient ring of K[x]/(p(x)), that is a field if p(x) is the minimal, 
 /// irreducible polynomial of an element that is algebraic over K
-type 'TCoefficient AlgebraicExtensionPolyField(coefficientField : 'TCoefficient Field, minimalPoly : 'TCoefficient[]) = 
+type 'TCoefficient AlgebraicExtensionField(coefficientField : 'TCoefficient Field, minimalPoly : 'TCoefficient[]) = 
   inherit Field<'TCoefficient[]>(UnivariatePolynomialAdditiveGroup(coefficientField),
                                  AlgebraicElementPolyMultiplicativeMonoid(coefficientField, minimalPoly),
                                  PolyUnitAndNormalParts coefficientField,
@@ -525,9 +548,9 @@ type 'TCoefficient AlgebraicExtensionPolyField(coefficientField : 'TCoefficient 
                                     let (pB, _) = regularPolyDomain.Eea(polyB, minimalPoly)
                                     let algMonoid = AlgebraicElementPolyMultiplicativeMonoid(coefficientField, minimalPoly)
                                     Some(algMonoid.Op polyA pB)
-                                 )
-  
-  )
+                                 ))
+  member _.MinimalPoly = minimalPoly
+  override _.IntegerConstant (n) = [| coefficientField.IntegerConstant n |]
 
 /// A functional field with given derivation
 type 'T DifferentialField(functionField: 'T Field, derive : 'T -> 'T) = 
@@ -535,6 +558,32 @@ type 'T DifferentialField(functionField: 'T Field, derive : 'T -> 'T) =
                      functionField.UnitAndNormalParts, functionField.Valuation, functionField.Divide)
   member _.Derive = derive
   
+let private ProductDerivative(field: 'T DifferentialField, polyA, polyB) = 
+  field.Add (field.Multiply (field.Derive polyA) polyB)
+            (field.Multiply polyA (field.Derive polyB))
+
+type 'TCoefficient AlgebraicExtensionDifferentialField(coefficientFunctionField: 'TCoefficient DifferentialField, minimalPoly: 'TCoefficient[]) = 
+  inherit ('TCoefficient[] DifferentialField)(AlgebraicExtensionField(coefficientFunctionField, minimalPoly), (fun poly ->   
+    let algExtField = AlgebraicExtensionField(coefficientFunctionField, minimalPoly)
+    let mutable result = algExtField.Zero
+    let mutable mNum = algExtField.Zero
+    let mutable mDen = algExtField.Zero
+    for i in 0..minimalPoly.Length-1 do       
+      mNum <- algExtField.Subtract mNum (Monomial coefficientFunctionField i (coefficientFunctionField.Derive minimalPoly.[i]))
+      if i>0 then mDen <- algExtField.Add mDen (Monomial coefficientFunctionField (i-1) 
+                                                         (coefficientFunctionField.Multiply 
+                                                            minimalPoly.[i] (coefficientFunctionField.IntegerConstant i)))
+    let minPolyDerivative = (algExtField.Divide mNum mDen).Value
+    for i in 0..poly.Length-1 do
+      let uPrimeV = Monomial coefficientFunctionField i (coefficientFunctionField.Derive poly.[i])      
+      let uVPrime = if i<1 then algExtField.Zero else 
+                    algExtField.Multiply [| poly.[i] |] (algExtField.Multiply minPolyDerivative
+                      (Monomial coefficientFunctionField (i-1) (coefficientFunctionField.IntegerConstant i)))
+      result <- algExtField.Add result (algExtField.Add uPrimeV uVPrime)   
+    result
+  ));
+
+
 /// Regular integers as an Euclidean Domain
 type IntegerRing() = 
   inherit EuclideanDomain<bigint>((new CommutativeGroup<bigint>(0I, 
@@ -550,7 +599,8 @@ type IntegerRing() =
                                   // DivRem is standard, except we consider it to be None when the divisor is 0      
                                   (fun p q -> if q = 0I then None else Some(p/q, p % q)),
                                   // valuation for integers is just the absolute value function
-                                  (fun p -> if p = 0I then None else Some (bigint.Abs p)))
+                                  (fun p -> if p = 0I then None else Some (bigint.Abs p))) 
+  override this.IntegerConstant (n: int) = bigint(n)
 
 /// Returns a human-readable string representation for given polynomial
 let GetPolyString<'T> (ring: 'T Ring) (coeffToString: 'T -> string) (poly: 'T[]) =

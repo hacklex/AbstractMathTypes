@@ -1,6 +1,6 @@
 ﻿// Basic abstract algebra types
-open MathTypes
- 
+open MathTypes 
+
 [<EntryPoint>]
 let main argv =     
     printfn "Q(x) Quotient Field test:"
@@ -9,7 +9,13 @@ let main argv =
     let integerRing = IntegerRing()
     // We construct the field of fractions for it, and get rationals with automatic simplify
     // of fractions, i.e. we will get 1/3+1/6 = 1/2, not 3/6!
+    
     let rationalField = QuotientField(integerRing)
+    
+    let oneThird = F(1I, 3I)
+    let oneFifth = F(1I, 5I)
+    let sum = rationalField.Add oneThird oneFifth
+   
     // We construct the domain of univariate polynomials over Q, and get poly DivRem for free,
     // including normalization unit part is lc(f), normal part is monic poly
     let rationalPolyDomain = UnivariatePolyOverFieldDomain(rationalField)
@@ -21,6 +27,7 @@ let main argv =
 
     // derivation on Q[x]
     let polyDerive (f: (bigint Fraction)[]) =
+      if f.Length < 2 then [|N 0I|] else
       Array.mapi (fun n f -> (rationalField.Multiply f (F(bigint(n+1), 1I)))) (Array.sub f 1 (f.Length-1))
     // Q(x) is a differential field, given derivation on Q[x]:
     let ratFunDifField = DifferentialField(rationalFunctionsOfX, (fun f ->      
@@ -33,8 +40,7 @@ let main argv =
                                                    (rationalFunctionsOfX.Multiply a dB))
          let deno = rationalFunctionsOfX.Multiply (N q) (N q)
          (rationalFunctionsOfX.Divide nume deno).Value
-        )
-    )
+       ))
 
     // surely we'd love pretty-printing our polys
     let getQPolyString = GetPolyString rationalField (fun frac -> 
@@ -82,7 +88,7 @@ let main argv =
     let minimalPoly = [|N 2I; N 0I; N 1I |]
     printfn "let K = Q[x]/(%s)" (getQPolyString minimalPoly)
     printfn ""
-    let algExOfQ = AlgebraicExtensionPolyField(rationalField, minimalPoly)
+    let algExOfQ = AlgebraicExtensionField(rationalField, minimalPoly)
     let divTest = algExOfQ.Divide algExOfQ.One [| N 1I; N 1I |]
 
     printfn "Then 1/(%s) = %s" (getQPolyString [| N 1I; N 1I |]) (getQPolyString divTest.Value)
@@ -92,12 +98,28 @@ let main argv =
     printfn ""
 
     let minimalPoly = [| N [| N -1I; N -1I|]; rationalFunctionsOfX.Zero; rationalFunctionsOfX.One |]
-    let algExOfQx = AlgebraicExtensionPolyField(rationalFunctionsOfX, minimalPoly)
+    let algExOfQx = AlgebraicExtensionDifferentialField(ratFunDifField, minimalPoly)
 
     printfn "let K = Q(x)[t]/(t^2-x-1)"
     
     let dr = (algExOfQx.Divide algExOfQx.One [| N [| N 1I |]; N [| N 1I |] |]).Value
+
+    let t = [| rationalFunctionsOfX.Zero; rationalFunctionsOfX.One |]
+    let tPlusOne = algExOfQx.Add t algExOfQx.One
+    let tPlusOneSquared = algExOfQx.Multiply tPlusOne tPlusOne
+    let twoTimesTPOS = algExOfQx.Add tPlusOneSquared tPlusOneSquared
+    let den = algExOfQx.Multiply twoTimesTPOS t 
+    let checkDer = (algExOfQx.Divide (algExOfQx.Negate algExOfQx.One) den).Value
+
+    let derivative = algExOfQx.Derive dr
+    let dt = algExOfQx.Derive t
     
-    printfn "1/(1 + sqrt(x + 1)) = %s + (%s)*sqrt(x + 1)" (getQRatFunString dr.[0]) (getQRatFunString dr.[1])
+    let getAlgFunString (af: (Fraction<Fraction<bigint>[]>[])) = "(" + getQRatFunString af.[0]  + ")+(" + getQRatFunString af.[1]  + ")*sqrt(1+x)" 
+
+    printfn  "D[%s] = %s" (getAlgFunString t) (getAlgFunString dt)
+
+    printfn "D[%s] = %s + (%s)*sqrt(x + 1)" (getAlgFunString dr) (getQRatFunString derivative.[0]) (getQRatFunString derivative.[1])
+      
+    
 
     0 // This is fine ©
