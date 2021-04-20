@@ -1,4 +1,7 @@
-﻿[<AutoOpen>]
+﻿/// Most basic implementation for abstract algebra types.
+/// Refer to K.O. Geddes, S.R. Czapor, G. Labahn -- Algorithms for computer algebra
+/// when unsure about naming conventions, terms etc.
+
 module public rec AbstractAlgebra
 
 type 'T BinaryOp(op : 'T -> 'T -> 'T) = member _.Op = op
@@ -48,12 +51,13 @@ type 'T Rng =
     abstract member IsZero : 'T -> bool
     abstract member IsNotZero : 'T -> bool
     abstract member AreEqual : 'T -> 'T -> bool
-
+    abstract member GetString : 'T -> string
 type 'T Ring = 
     inherit ('T Rng)
     abstract member MultiplicationStructure : 'T Monoid
     abstract member One : 'T
     abstract member IntegerConstant : int -> 'T
+    abstract member IsOne : 'T -> bool
 
 type 'T CommutativeRing = 
     inherit ('T Ring)
@@ -125,7 +129,7 @@ module public Construct =
     inherit Group<'T>(neutralElement, op, invert, eqChecker)
     interface AbstractAlgebra.CommutativeGroup<'T>  
 
-  type 'T Rng(additionGroup: 'T AbstractAlgebra.CommutativeGroup, multiplicationSemigroup: 'T AbstractAlgebra.Semigroup) = 
+  type 'T Rng(additionGroup: 'T AbstractAlgebra.CommutativeGroup, multiplicationSemigroup: 'T AbstractAlgebra.Semigroup, getString: ('T -> string)) = 
     member _.AdditionStructure = additionGroup
     member _.MultiplicationStructure = multiplicationSemigroup
     member _.Zero = additionGroup.NeutralElement
@@ -136,6 +140,7 @@ module public Construct =
     member _.IsZero a = additionGroup.AreEqual additionGroup.NeutralElement a
     member _.IsNotZero a = not (additionGroup.AreEqual additionGroup.NeutralElement a)
     member _.AreEqual a b = additionGroup.AreEqual a b
+    member _.GetString a = getString a
     interface AbstractAlgebra.Rng<'T> with 
       member _.AdditionStructure = additionGroup
       member _.MultiplicationStructure = multiplicationSemigroup
@@ -147,24 +152,27 @@ module public Construct =
       member _.IsZero a = additionGroup.AreEqual additionGroup.NeutralElement a
       member _.IsNotZero a = not (additionGroup.AreEqual additionGroup.NeutralElement a)
       member _.AreEqual a b = additionGroup.AreEqual a b  
-  type 'T Ring(additionGroup, multiplicationMonoid: 'T AbstractAlgebra.Monoid, integerConstantMaker) = 
-    inherit ('T Rng)(additionGroup, multiplicationMonoid)
+      member p.GetString a = getString a
+  type 'T Ring(additionGroup, multiplicationMonoid: 'T AbstractAlgebra.Monoid, integerConstantMaker, getString) = 
+    inherit ('T Rng)(additionGroup, multiplicationMonoid, getString)
     member _.One = multiplicationMonoid.NeutralElement
     member _.MultiplicationStructure = multiplicationMonoid
+    member _.IsOne x = multiplicationMonoid.AreEqual x multiplicationMonoid.NeutralElement
     member p.IntegerConstant n = (AbstractAlgebra.MakeIntegerConstant p integerConstantMaker n)
     interface AbstractAlgebra.Ring<'T> with 
+      member q.IsOne x = q.IsOne x
       member q.One = q.One
       member q.MultiplicationStructure = q.MultiplicationStructure
       member q.IntegerConstant n = q.IntegerConstant n
-  type 'T CommutativeRing(additionGroup, multiplicationMonoid: 'T AbstractAlgebra.CommutativeMonoid, integerConstantMaker) = 
-    inherit ('T Ring)(additionGroup, multiplicationMonoid, integerConstantMaker)    
+  type 'T CommutativeRing(additionGroup, multiplicationMonoid: 'T AbstractAlgebra.CommutativeMonoid, integerConstantMaker, getString) = 
+    inherit ('T Ring)(additionGroup, multiplicationMonoid, integerConstantMaker, getString)    
     member _.MultiplicationStructure = multiplicationMonoid    
     interface AbstractAlgebra.CommutativeRing<'T> with member q.MultiplicationStructure = q.MultiplicationStructure
-  type 'T Domain(additionGroup, multiplicationMonoid, integerConstantMaker) = 
-    inherit ('T Ring)(additionGroup, multiplicationMonoid, integerConstantMaker)
+  type 'T Domain(additionGroup, multiplicationMonoid, integerConstantMaker, getString) = 
+    inherit ('T Ring)(additionGroup, multiplicationMonoid, integerConstantMaker, getString)
     interface AbstractAlgebra.Domain<'T>   
-  type 'T IntegralDomain(additionGroup, multiplicationMonoid, integerConstantMaker, unitAndNormalParts, unitInverse) = 
-    inherit ('T CommutativeRing)(additionGroup, multiplicationMonoid, integerConstantMaker)
+  type 'T IntegralDomain(additionGroup, multiplicationMonoid, integerConstantMaker, unitAndNormalParts, unitInverse, getString) = 
+    inherit ('T CommutativeRing)(additionGroup, multiplicationMonoid, integerConstantMaker, getString)
     member _.UnitAndNormalParts a = unitAndNormalParts a
     member _.UnitPart a = fst (unitAndNormalParts a)
     member _.NormalPart a = snd (unitAndNormalParts a) 
@@ -175,9 +183,9 @@ module public Construct =
       member d.NormalPart a = d.NormalPart a
       member d.UnitInverse u = d.UnitInverse u
   type 'T UniqueFactorizationDomain(additionGroup: 'T AbstractAlgebra.CommutativeGroup, multiplicationMonoid: 'T AbstractAlgebra.CommutativeMonoid, 
-                                    integerConstantMaker, unitAndNormalParts, divRem: 'T -> 'T -> ('T * 'T) option) = 
+                                    integerConstantMaker, unitAndNormalParts, divRem: 'T -> 'T -> ('T * 'T) option, getString) = 
     inherit ('T IntegralDomain)(additionGroup, multiplicationMonoid, integerConstantMaker, unitAndNormalParts, 
-      (fun u -> fst (divRem multiplicationMonoid.NeutralElement u).Value))
+      (fun u -> fst (divRem multiplicationMonoid.NeutralElement u).Value), getString)
     member _.DivRem a b = divRem a b
     member _.Div a b = (divRem a b) |> Option.map fst
     member _.Rem a b = (divRem a b) |> Option.map snd
@@ -185,8 +193,8 @@ module public Construct =
       member q.DivRem a b = q.DivRem a b
       member q.Div a b = q.Div a b
       member q.Rem a b = q.Rem a b
-  type 'T EuclideanDomain(additionGroup, multiplicationMonoid, integerConstantMaker, unitAndNormalParts, divRem, valuation) = 
-    inherit ('T UniqueFactorizationDomain)(additionGroup, multiplicationMonoid, integerConstantMaker, unitAndNormalParts, divRem)
+  type 'T EuclideanDomain(additionGroup, multiplicationMonoid, integerConstantMaker, unitAndNormalParts, divRem, valuation, getString) = 
+    inherit ('T UniqueFactorizationDomain)(additionGroup, multiplicationMonoid, integerConstantMaker, unitAndNormalParts, divRem, getString)
     member _.Valuation p = valuation p
     member this.Gcd a b =     
       if ((this.AreEqual this.Zero a) || (this.AreEqual this.Zero b)) then None 
@@ -225,14 +233,14 @@ module public Construct =
       member e.Valuation p = e.Valuation p
       member e.Eea a b = e.Eea a b
       member e.Gcd a b = e.Gcd a b
-  type 'T Field(additiveGroup, multiplicativeMonoid, integerConstantMaker, unitAndNormalParts, divide: 'T -> 'T -> 'T option) = 
+  type 'T Field(additiveGroup, multiplicativeMonoid, integerConstantMaker, unitAndNormalParts, divide: 'T -> 'T -> 'T option, getString) = 
     inherit ('T EuclideanDomain)(additiveGroup,  
                                  multiplicativeMonoid,
                                  integerConstantMaker,          
                                  unitAndNormalParts,
                                  (fun a b -> if (additiveGroup.AreEqual b additiveGroup.NeutralElement) then None 
                                              else Some((divide a b).Value, additiveGroup.NeutralElement)),
-                                 (fun a -> if (additiveGroup.AreEqual additiveGroup.NeutralElement a) then None else Some(0I)))
+                                 (fun a -> if (additiveGroup.AreEqual additiveGroup.NeutralElement a) then None else Some(0I)), getString)
     member f.Divide a b = divide a b
     member f.Invert a = (divide multiplicativeMonoid.NeutralElement a) 
     interface AbstractAlgebra.Field<'T> with 

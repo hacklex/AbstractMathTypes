@@ -1,12 +1,14 @@
-﻿module CacheHelpers
+﻿/// A little handy helper to cache any function
+/// Thanks Ayrat for sharing this gem!
+module CacheHelpers
 
 open System.Collections.Concurrent
 
-let Сache f = 
-  let dict = ConcurrentDictionary()
+let Сache funcToCache = 
+  let dictionary = ConcurrentDictionary()
   fun args ->
-    match dict.TryGetValue args with
+    match dictionary.TryGetValue args with
     | true, value -> value
     | false, _ ->
-      let value = f args
-      dict.AddOrUpdate(args, value, fun _ v -> v) 
+      let value = funcToCache args
+      dictionary.AddOrUpdate(args, value, fun _ v -> v) 

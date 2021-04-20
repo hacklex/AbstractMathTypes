@@ -12,7 +12,6 @@
     <Compile Include="Polynomials.fs" />
     <Compile Include="FieldExtensions.fs" />
     <Compile Include="DifferentialAlgebra.fs" />
-    <Compile Include="MathTypes.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 

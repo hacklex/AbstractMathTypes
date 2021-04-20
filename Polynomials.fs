@@ -92,35 +92,60 @@ let PolyUnitAndNormalParts (coefficientField: 'T Field) (poly: 'T[]) =
                         [| (coefficientField.Divide coefficientField.One (PolyLc coefficientField poly)).Value |] ))           
    else ([| coefficientField.One |], [||])
    
+/// Interface to general Polynomial Rings
 type PolynomialRing<'TCoefficient> = 
   inherit Ring<'TCoefficient[]>
   abstract member CoefficientRing : Ring<'TCoefficient> 
-
+/// Interface to polynomial rings with coefficients from a field
 type PolynomialEuclideanDomain<'TCoefficient> = 
   inherit PolynomialRing<'TCoefficient>   
   inherit EuclideanDomain<'TCoefficient[]>
   abstract member CoefficientRing : Field<'TCoefficient>
 
-type private PolyRingOverRing<'TCoefficient>(coefficientRing: 'TCoefficient Ring) = 
+/// Polynomial to String conversion function
+let PolyGetString<'TCoefficient>(coefficientRing: 'TCoefficient Ring) (variable: string) (poly : 'TCoefficient[]) =
+  if poly.Length=0 then "0" else
+  let sb = System.Text.StringBuilder()
+  let coefToString coef = coefficientRing.GetString coef
+  let coefWrite (index:int) (coef : 'TCoefficient) = 
+    if index = 0 then (coefToString coef) else      
+        let xPart = if index=1 then variable else variable+"^"+index.ToString()
+        let coefPart = (if (coefficientRing.AreEqual coefficientRing.One coef) then "" else (coefToString coef))
+        let coefFinalPart = if ((coefPart.Contains "+") || (coefPart.Contains "-") || (coefPart.Contains "/")) && ((not (coefPart.StartsWith "(")) || (not (coefPart.EndsWith ")")))
+                            then "(" + coefPart + ")" else coefPart
+        coefFinalPart+xPart
+  let cf i = poly.[poly.Length-i-1]
+  for i in 0..poly.Length-1 do
+    let deg = poly.Length-1-i
+    let cfNotZero = coefficientRing.IsNotZero((cf i))
+    if i>0 && cfNotZero then 
+      sb.Append(" + ") |> ignore
+    if cfNotZero then 
+      sb.Append((coefWrite deg (cf i)) ) |> ignore
+  sb.ToString()
+
+type private PolyRingOverRing<'TCoefficient>(coefficientRing: 'TCoefficient Ring, variableName: string) = 
   inherit Construct.Ring<'TCoefficient[]>(
     Construct.CommutativeGroup(Array.empty, CommutativeBinaryOp(PolyAdd coefficientRing), 
                                UnaryOp(PolyNegate coefficientRing), EqualityChecker(PolyComparison coefficientRing)),
-    Construct.Monoid(Array.empty, BinaryOp(PolyMultiply coefficientRing), 
+    Construct.Monoid([| coefficientRing.One |], BinaryOp(PolyMultiply coefficientRing), 
                      EqualityChecker(PolyComparison coefficientRing)),
-    Some(fun n -> [| coefficientRing.IntegerConstant n |]))
+    Some(fun n -> [| coefficientRing.IntegerConstant n |]), 
+    PolyGetString coefficientRing variableName)
   member p.CoefficientRing = coefficientRing
   interface PolynomialRing<'TCoefficient> with 
     member p.CoefficientRing = p.CoefficientRing
-type private PolyDomainOverField<'TCoefficient>(coefficientField: 'TCoefficient Field) = 
+type private PolyDomainOverField<'TCoefficient>(coefficientField: 'TCoefficient Field, variableName: string) = 
   inherit Construct.EuclideanDomain<'TCoefficient[]>(
       Construct.CommutativeGroup(Array.empty, CommutativeBinaryOp(PolyAdd coefficientField), 
                                  UnaryOp(PolyNegate coefficientField), EqualityChecker(PolyComparison coefficientField)),
-      Construct.CommutativeMonoid(Array.empty, CommutativeBinaryOp(PolyMultiply coefficientField), 
+      Construct.CommutativeMonoid([| coefficientField.One |], CommutativeBinaryOp(PolyMultiply coefficientField), 
                        EqualityChecker(PolyComparison coefficientField)),
       Some(fun n -> [| coefficientField.IntegerConstant n |]),
       PolyUnitAndNormalParts coefficientField,
       PolyDivRem coefficientField,
-      PolyDegreeBigInt coefficientField)
+      PolyDegreeBigInt coefficientField,
+      PolyGetString coefficientField variableName)
   interface PolynomialEuclideanDomain<'TCoefficient> with
     member _.CoefficientRing = coefficientField :> 'TCoefficient Ring
     member _.CoefficientRing = coefficientField 
@@ -144,10 +169,10 @@ type Construct = class
   static member PolyIntConstantMaker (coefficientRing: 'TCoefficient Ring) = 
     (Сache (fun (coefRing: 'TCoefficient Ring) -> Some(fun n -> [| coefRing.IntegerConstant n |]) )) coefficientRing
          
-  static member UnivariatePolynomialRing(coefficientRing: 'TCoefficient Ring) = 
-    (Сache (fun (coefRing : 'TCoefficient Ring) -> PolyRingOverRing(coefficientRing) :> PolynomialRing<'TCoefficient>)) coefficientRing
+  static member UnivariatePolynomialRing(coefficientRing: 'TCoefficient Ring, variableName: string) = 
+    (Сache (fun (coefRing : 'TCoefficient Ring, varName: string) -> PolyRingOverRing(coefRing, varName) :> PolynomialRing<'TCoefficient>)) (coefficientRing, variableName)
 
-  static member UnivariatePolynomialRing(coefficientField: 'TCoefficient Field) = 
-    (Сache (fun (coefField : 'TCoefficient Field) -> PolyDomainOverField(coefficientField) :> PolynomialEuclideanDomain<'TCoefficient>)) coefficientField 
+  static member UnivariatePolynomialRing(coefficientField: 'TCoefficient Field, variableName: string) = 
+    (Сache (fun (coefField : 'TCoefficient Field, varName: string) -> PolyDomainOverField(coefField, varName) :> PolynomialEuclideanDomain<'TCoefficient>)) (coefficientField, variableName)
 end
   

@@ -8,7 +8,7 @@ open Polynomials
 let private AlgebraicElementPolyMonoid(coefficientField: 'TCoefficient Field, minimalPoly: 'TCoefficient[])=
   Construct.CommutativeMonoid<'TCoefficient[]>([| coefficientField.One |], 
     CommutativeBinaryOp(fun polyA polyB ->
-      let simpleDomain = Construct.UnivariatePolynomialRing(coefficientField)      
+      let simpleDomain = Construct.UnivariatePolynomialRing(coefficientField, "x")      
       (simpleDomain.Rem (simpleDomain.Multiply polyA polyB) minimalPoly).Value), 
     Construct.PolyEqualityChecker coefficientField) 
 
@@ -17,17 +17,17 @@ let private AlgebraicElementPolyMonoid(coefficientField: 'TCoefficient Field, mi
 /// as well as elements that cannot be expressed by radicals.
 /// Basically, it's a quotient ring of K[x]/(p(x)), that is a field if p(x) is the minimal, 
 /// irreducible polynomial of an element that is algebraic over K
-type 'TCoefficient AlgebraicExtensionField(coefficientField : 'TCoefficient Field, minimalPoly : 'TCoefficient[]) = 
+type 'TCoefficient AlgebraicExtensionField(coefficientField : 'TCoefficient Field, minimalPoly : 'TCoefficient[], variableName: string) = 
   inherit Construct.Field<'TCoefficient[]>(Construct.PolyAdditiveGroup(coefficientField),
                                  AlgebraicElementPolyMonoid(coefficientField, minimalPoly),
                                  Construct.PolyIntConstantMaker coefficientField,
                                  PolyUnitAndNormalParts coefficientField,                                 
                                  (fun polyA polyB ->                                     
-                                    let regularPolyDomain = Construct.UnivariatePolynomialRing(coefficientField)
+                                    let regularPolyDomain = Construct.UnivariatePolynomialRing(coefficientField, variableName)
                                     if regularPolyDomain.IsZero(polyB) then None else
                                     let (pB, _) = regularPolyDomain.Eea polyB minimalPoly
                                     let algMonoid = AlgebraicElementPolyMonoid(coefficientField, minimalPoly)
-                                    Some(algMonoid.Op polyA pB)
-                                 ))
+                                    Some(algMonoid.Op polyA pB)), 
+                                 PolyGetString coefficientField variableName)
   member _.MinimalPoly = minimalPoly
 

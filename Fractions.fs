@@ -98,6 +98,21 @@ type QuotientField<'T> (domain: 'T IntegralDomain) =
                         QuotientEqualityChecker domain),
       Some(fun n -> N (domain.IntegerConstant(n))),
       QuotientUnitAndNormalParts domain,      
-      QuotientDivide domain)
-  
+      QuotientDivide domain,
+      fun frac ->
+        let (num, den) = FullFraction domain frac
+        if (domain.IsZero num) then "0"
+        else if (QuotientEqualityChecker domain).AreEqual frac (F(domain.One, domain.One))
+          then "1" else 
+            let numString = domain.GetString num 
+            let denString = domain.GetString den 
+            if (domain.IsOne den) then numString else 
+                let finalNum = if ((numString.Contains "+") || (numString.Contains "-")) && ((not (numString.StartsWith "(")) || (not (numString.EndsWith ")")))
+                               then "(" + numString + ")" else numString
+                let finalDen = if ((denString.Contains "+") || (denString.Contains "-")) && ((not (denString.StartsWith "(")) || (not (denString.EndsWith ")")))
+                               then "(" + denString + ")" else denString
+                finalNum+"/"+finalDen      
+      )
+  member _.NumOverOne numerator = F(numerator, domain.One)
+  member d.Fraction numerator denominator = QuotientCompact d (F(numerator, denominator))
    
