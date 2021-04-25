@@ -30,4 +30,5 @@ type 'TCoefficient AlgebraicExtensionField(coefficientField : 'TCoefficient Fiel
                                     Some(algMonoid.Op polyA pB)), 
                                  PolyGetString coefficientField variableName)
   member _.MinimalPoly = minimalPoly
+  member _.CoefficientField = coefficientField
 
