@@ -33,7 +33,7 @@ let main argv =
     let polyMultiplyResult = qPolys.Multiply poly1 poly2
 
     printfn "Done. Testing (%s)*(%s) = %s" (qPolys.GetString poly1) (qPolys.GetString poly2) (qPolys.GetString polyMultiplyResult)
-    printfn "\nNow constructing the differential ring for Q[x]...\n"
+    printfn "\nNow constructing the differential field for Q(x) from Q with zero derivation...\n"
 
     // When we develop Transcendental Extensions, we will not need even this.
     // We instead will just define Q with zero derivation, and Q(x) as a transcendental
@@ -46,30 +46,40 @@ let main argv =
             Array.set subCoef i (ring.Multiply oldCoef (ring.IntegerConstant (i+1)))      
           subCoef
 
-    let polyDiffRing = DifferentialPolyRing(qPolys, polyDerive rationals)
-    let derTest = polyDiffRing.Derive polyMultiplyResult
+    let trivialDiffFieldOnQ = DifferentialField(rationals, fun _ -> rationals.Zero)
+    let ratFunAsExt = DifferentialTranscendentExtensionField(trivialDiffFieldOnQ, "x", [| rationals.One |])
 
-    printfn "Done. Testing D[%s] = %s \n" (qPolys.GetString polyMultiplyResult) (qPolys.GetString derTest)
-    printfn "Now constructing the quotient field Q(x)..."
+    let derTest = ratFunAsExt.Derive (N polyMultiplyResult)
+    let polyMulResult = N polyMultiplyResult
 
-    let rationalFunctionsOfX = QuotientField(qPolys)
-    let sum = rationalFunctionsOfX.Add (F(qPolys.One, derTest)) (N polyMultiplyResult)
+    let rationalFunctionsOfX = ratFunAsExt.Field
+    let oneOverDerTest = (rationalFunctionsOfX.Invert derTest).Value
+    let sum = rationalFunctionsOfX.Add oneOverDerTest (N polyMultiplyResult)
     let gs = rationalFunctionsOfX.GetString // we need a short name for that
 
-    printfn "\nDone. Testing %s + %s = %s\n" (gs (F(qPolys.One, derTest))) (gs (N polyMultiplyResult)) (gs sum)
+    printfn "\nDone. Testing %s + %s = %s\n" (gs oneOverDerTest) (gs (N polyMultiplyResult)) (gs sum)
     printfn "Now constructing algebraic extension Q(x)[t]/(t^2-x-1)..."
 
     let minusXMinusOne = N [| N -1; N -1 |] // -x-1
     let algExt = AlgebraicExtensionField(rationalFunctionsOfX, [| minusXMinusOne; rationalFunctionsOfX.Zero; rationalFunctionsOfX.One |], "Sqrt(x+1)")    
-    let expr = (algExt.Divide algExt.One (algExt.Add algExt.One [| rationalFunctionsOfX.Zero; rationalFunctionsOfX.One |])).Value
+    let expr = (algExt.Divide algExt.One [| rationalFunctionsOfX.One; rationalFunctionsOfX.One |]).Value
 
     printfn "\nDone. Testing 1/(1+Sqrt(x+1)) = %s\n" (algExt.GetString expr)
     printfn "Now constructing the differential field from Q(x)[t]..."
 
-    let difQ = DifferentialQuotientField(qPolys, polyDerive rationals)     
-    let difExt = DifferentialAlgebraicExtensionField(algExt, (difQ.Derive))
+    let difQ = trivialDiffFieldOnQ   
+    let difExt = DifferentialAlgebraicExtensionField(ratFunAsExt, algExt.MinimalPoly, "sqrt(x+1)")    
     let dExpr = difExt.Derive expr
 
-    printfn "\nDone. Testing D[%s] = %s" (algExt.GetString expr) (algExt.GetString dExpr)
+    printfn "\nDone. Testing D[%s] = %s\n" (algExt.GetString expr) (algExt.GetString dExpr)
+    printfn "Now constructing the differential field from Q(x)(exp(x))..."
+    
+
+    let exponentialExtField = DifferentialTranscendentExtensionField(ratFunAsExt, "exp(x)", [| rationalFunctionsOfX.Zero; rationalFunctionsOfX.One |])
+    let eField = exponentialExtField.Field
+    let expExpression = N [| rationalFunctionsOfX.One; rationalFunctionsOfX.Zero; rationalFunctionsOfX.One |]
+    let der = exponentialExtField.Derive expExpression
+
+    printfn "\nDone. Testing D[%s] = %s\n" (eField.GetString expExpression) (eField.GetString der)
 
     0 // This is fine ©

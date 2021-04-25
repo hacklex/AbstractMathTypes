@@ -5,6 +5,7 @@ open Fractions
 open Polynomials
 open FieldExtensions
 
+
 type DifferentialPolyRing<'T>(polyRing : 'T PolynomialRing, derivation: 'T[] -> 'T[]) = 
   member _.PolynomialRing = polyRing
   member _.Derive poly = derivation poly
@@ -41,36 +42,43 @@ type DifferentialQuotientField<'T>(polyDomain: EuclideanDomain<'T[]>, derivation
     | One -> N polyDomain.One                      
   ))
 
-type DifferentialAlgebraicExtensionField<'T>(field: 'T AlgebraicExtensionField, polyDerivation: 'T -> 'T) = 
-  inherit DifferentialField<'T[]>(field, (fun poly ->
-     let minimalPoly = field.MinimalPoly
-     let mutable result = field.Zero
-     let mutable mNum = field.Zero
-     let mutable mDen = field.Zero      
-     let oneCoef = field.One.[0]
-     let xPlusOne = [| oneCoef; oneCoef |]
-     let justX = field.Subtract xPlusOne field.One
-     let zeroCoef = justX.[0]
+type DifferentialTranscendentExtensionField<'T>(field: 'T DifferentialField, variableName, derivativeOfT : 'T[]) =   
+  inherit DifferentialField<Fraction<'T[]>>(QuotientField(Construct.UnivariatePolynomialRing(field.Field, variableName)), fun  (frac : Fraction<'T[]>) ->    
+    let polyRing = Construct.UnivariatePolynomialRing(field.Field, variableName)
+    let (num, den) = FullFraction polyRing frac
+    let polyDerive poly = PolyDerive field variableName derivativeOfT
+    let numDer = (PolyDerive field variableName derivativeOfT num)
+    let denDer = (PolyDerive field variableName derivativeOfT den)
+    let sub = (polyRing.Subtract (polyRing.Multiply numDer den) (polyRing.Multiply num denDer))
+    let totalDen = polyRing.Multiply den den
+    Construct.Fraction polyRing sub totalDen
+  )
 
-     let monomial deg coef = 
-       let arr = Array.create (deg+1) zeroCoef 
-       Array.set arr deg coef
-       arr
+type DifferentialAlgebraicExtensionField<'T>(field: 'T DifferentialField, minimalPoly : 'T[], variableName) as self = 
+  inherit DifferentialField<'T[]>(AlgebraicExtensionField(field.Field, minimalPoly, variableName), (fun poly ->     
+     let polyField = self.Field
+     let coefField = field.Field
+     let mutable result : 'T[] = [||]
+     let mutable mNum = polyField.Zero
+     let mutable mDen = polyField.Zero
+     
+     let coefficientDerive coef = field.Derive coef
+     let monomial deg coef = Monomial coefField deg coef
 
      for i in 0..minimalPoly.Length-1 do       
-        mNum <- field.Subtract mNum (monomial i (polyDerivation minimalPoly.[i]))
+        let polyCoef =  minimalPoly.[i] 
+        mNum <- polyField.Subtract mNum (monomial i (coefficientDerive polyCoef))
         if i>0 then 
-            let polyCoef =  minimalPoly.[i] 
-            let n = (field.IntegerConstant i)
+            let n = (polyField.IntegerConstant i)
             let nextMonomial = (monomial (i-1) polyCoef)            
-            mDen <- field.Add mDen (field.Multiply nextMonomial n)
-     let minPolyDerivative = (field.Divide mNum mDen).Value
+            mDen <- polyField.Add mDen (polyField.Multiply nextMonomial n)
+     let minPolyDerivative = (polyField.Divide mNum mDen).Value
      for i in 0..poly.Length-1 do
-       let uPrimeV = monomial i (polyDerivation poly.[i])      
-       let uVPrime = if i<1 then field.Zero else 
-                     field.Multiply [| poly.[i] |] (field.Multiply minPolyDerivative
-                       (monomial (i-1) (field.IntegerConstant i).[0]))
-       result <- field.Add result (field.Add uPrimeV uVPrime)   
+       let uPrimeV = monomial i (coefficientDerive poly.[i])      
+       let uVPrime = if i<1 then polyField.Zero else 
+                     polyField.Multiply [| poly.[i] |] (polyField.Multiply minPolyDerivative
+                       (monomial (i-1) (polyField.IntegerConstant i).[0]))
+       result <- polyField.Add result (polyField.Add uPrimeV uVPrime)   
      result    
   ))
 
