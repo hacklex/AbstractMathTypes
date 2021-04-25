@@ -13,6 +13,22 @@ type DifferentialField<'T>(field: 'T Field, derivation: 'T -> 'T) =
   member _.Field = field
   member _.Derive element = derivation element
 
+let PolyDerive<'T> (coefficientField: 'T DifferentialField) (variableName) (elementDerivative: 'T[]) (poly: 'T[]) =   
+  let polyRing = Construct.UnivariatePolynomialRing(coefficientField.Field, variableName)
+  let mutable result = polyRing.Zero
+  let monomial degree coefficient = Monomial(coefficientField.Field) degree coefficient
+  let intConst n = coefficientField.Field.IntegerConstant n
+  if poly.Length < 1 then result else
+  if poly.Length < 2 then [| coefficientField.Derive poly.[0] |] else
+  for i in 1..(poly.Length-1) do 
+    let c = poly.[i] 
+    let dC = coefficientField.Derive poly.[i]
+    let dDeg = intConst i
+    let dCtPlusCdt = polyRing.Add (monomial i dC)
+                                  (polyRing.Multiply (monomial (i-1) (coefficientField.Field.Multiply c dDeg)) elementDerivative)
+    result <- polyRing.Add result dCtPlusCdt   
+  result  
+
 type DifferentialQuotientField<'T>(polyDomain: EuclideanDomain<'T[]>, derivation: 'T[] -> 'T[]) = 
   inherit DifferentialField<Fraction<'T[]>>(QuotientField(polyDomain), (fun frac -> 
     match frac with 
