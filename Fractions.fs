@@ -87,7 +87,7 @@ let private QuotientDivide (domain: 'T IntegralDomain) (p: 'T Fraction) (q: 'T F
     let den = denAbs
     Some(QuotientCompact domain (F(num, den)))
 /// Field of fractions constructed from an Euclidean Domain 
-type QuotientField<'T> (domain: 'T IntegralDomain) =
+type QuotientField<'T> (domain: 'T IntegralDomain)  as self =
   inherit Construct.Field<'T Fraction>(
       Construct.CommutativeGroup(F(domain.Zero, domain.One), 
                        CommutativeBinaryOp(QuotientAdd domain),
@@ -113,6 +113,13 @@ type QuotientField<'T> (domain: 'T IntegralDomain) =
                                then "(" + denString + ")" else denString
                 finalNum+"/"+finalDen      
       )
+  do self.SetCoercion (fun (o:obj) ->    
+    match o with 
+    | :? Fraction<'T> as f -> Some f
+    | _ -> match (domain.Coerce o) with     
+           | Some x -> Some (F(x, domain.One))
+           | _ -> None  )
+
   member _.NumOverOne numerator = F(numerator, domain.One)
   member d.Fraction numerator denominator = QuotientCompact d (F(numerator, denominator))
    

@@ -95,7 +95,9 @@ let PolyUnitAndNormalParts (coefficientField: 'T Field) (poly: 'T[]) =
 /// Interface to general Polynomial Rings
 type PolynomialRing<'TCoefficient> = 
   inherit Ring<'TCoefficient[]>
-  abstract member CoefficientRing : Ring<'TCoefficient> 
+  abstract member CoefficientRing : Ring<'TCoefficient>     
+
+
 /// Interface to polynomial rings with coefficients from a field
 type PolynomialEuclideanDomain<'TCoefficient> = 
   inherit PolynomialRing<'TCoefficient>   
@@ -124,7 +126,7 @@ let PolyGetString<'TCoefficient>(coefficientRing: 'TCoefficient Ring) (variable:
       sb.Append((coefWrite deg (cf i)) ) |> ignore
   sb.ToString()
 
-type private PolyRingOverRing<'TCoefficient>(coefficientRing: 'TCoefficient Ring, variableName: string) = 
+type private PolyRingOverRing<'TCoefficient>(coefficientRing: 'TCoefficient Ring, variableName: string) as self = 
   inherit Construct.Ring<'TCoefficient[]>(
     Construct.CommutativeGroup(Array.empty, CommutativeBinaryOp(PolyAdd coefficientRing), 
                                UnaryOp(PolyNegate coefficientRing), EqualityChecker(PolyComparison coefficientRing)),
@@ -132,10 +134,20 @@ type private PolyRingOverRing<'TCoefficient>(coefficientRing: 'TCoefficient Ring
                      EqualityChecker(PolyComparison coefficientRing)),
     Some(fun n -> [| coefficientRing.IntegerConstant n |]), 
     PolyGetString coefficientRing variableName)
+  do self.SetCoercion (fun (o:obj) ->    
+      match o with 
+      | :? ('TCoefficient[]) as f -> Some f
+      | _ -> match (coefficientRing.Coerce o) with     
+             | Some x -> Some ([| x |])
+             | _ -> None)
   member p.CoefficientRing = coefficientRing
   interface PolynomialRing<'TCoefficient> with 
     member p.CoefficientRing = p.CoefficientRing
-type private PolyDomainOverField<'TCoefficient>(coefficientField: 'TCoefficient Field, variableName: string) = 
+
+
+
+
+type private PolyDomainOverField<'TCoefficient>(coefficientField: 'TCoefficient Field, variableName: string) as self = 
   inherit Construct.EuclideanDomain<'TCoefficient[]>(
       Construct.CommutativeGroup(Array.empty, CommutativeBinaryOp(PolyAdd coefficientField), 
                                  UnaryOp(PolyNegate coefficientField), EqualityChecker(PolyComparison coefficientField)),
@@ -145,7 +157,13 @@ type private PolyDomainOverField<'TCoefficient>(coefficientField: 'TCoefficient 
       PolyUnitAndNormalParts coefficientField,
       PolyDivRem coefficientField,
       PolyDegreeBigInt coefficientField,
-      PolyGetString coefficientField variableName)
+      PolyGetString coefficientField variableName)  
+  do self.SetCoercion (fun (o:obj) ->    
+      match o with 
+      | :? ('TCoefficient[]) as f -> Some f
+      | _ -> match (coefficientField.Coerce o) with     
+             | Some x -> Some ([| x |])
+             | _ -> None)
   interface PolynomialEuclideanDomain<'TCoefficient> with
     member _.CoefficientRing = coefficientField :> 'TCoefficient Ring
     member _.CoefficientRing = coefficientField 

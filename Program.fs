@@ -82,4 +82,7 @@ let main argv =
 
     printfn "\nDone. Testing D[%s] = %s\n" (eField.GetString expExpression) (eField.GetString der)
 
+    let coerced = rationalFunctionsOfX.Coerce 1
+    if coerced.IsSome then printfn "Coercion test: 1=%s" (rationalFunctionsOfX.GetString coerced.Value)
+
     0 // This is fine ©

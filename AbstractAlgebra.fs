@@ -52,6 +52,7 @@ type 'T Rng =
     abstract member IsNotZero : 'T -> bool
     abstract member AreEqual : 'T -> 'T -> bool
     abstract member GetString : 'T -> string
+    abstract member Coerce : obj -> 'T option
 type 'T Ring = 
     inherit ('T Rng)
     abstract member MultiplicationStructure : 'T Monoid
@@ -129,7 +130,14 @@ module public Construct =
     inherit Group<'T>(neutralElement, op, invert, eqChecker)
     interface AbstractAlgebra.CommutativeGroup<'T>  
 
+  let private Coerce<'T> (obj:obj) = match obj with | :? 'T as x -> Some x | _ -> None
+   
   type 'T Rng(additionGroup: 'T AbstractAlgebra.CommutativeGroup, multiplicationSemigroup: 'T AbstractAlgebra.Semigroup, getString: ('T -> string)) = 
+    let mutable _coercion : (obj -> 'T option) = fun (obj:obj) -> match obj with
+                                                                     | :? 'T as x -> Some x
+                                                                     | _ -> None                                                                                                                                         
+    member _.SetCoercion (newCoercion: obj -> 'T option) = _coercion <- newCoercion
+    member _.Coerce p = _coercion p 
     member _.AdditionStructure = additionGroup
     member _.MultiplicationStructure = multiplicationSemigroup
     member _.Zero = additionGroup.NeutralElement
@@ -142,6 +150,7 @@ module public Construct =
     member _.AreEqual a b = additionGroup.AreEqual a b
     member _.GetString a = getString a
     interface AbstractAlgebra.Rng<'T> with 
+      member p.Coerce obj = p.Coerce obj
       member _.AdditionStructure = additionGroup
       member _.MultiplicationStructure = multiplicationSemigroup
       member _.Zero = additionGroup.NeutralElement
@@ -154,7 +163,7 @@ module public Construct =
       member _.AreEqual a b = additionGroup.AreEqual a b  
       member p.GetString a = getString a
   type 'T Ring(additionGroup, multiplicationMonoid: 'T AbstractAlgebra.Monoid, integerConstantMaker, getString) = 
-    inherit ('T Rng)(additionGroup, multiplicationMonoid, getString)
+    inherit ('T Rng)(additionGroup, multiplicationMonoid, getString)    
     member _.One = multiplicationMonoid.NeutralElement
     member _.MultiplicationStructure = multiplicationMonoid
     member _.IsOne x = multiplicationMonoid.AreEqual x multiplicationMonoid.NeutralElement
