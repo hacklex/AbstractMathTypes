@@ -17,10 +17,13 @@ Currently, I've implemented the following algebraic structures:
 
 # Latest update: Transcendental Extensions (2021-04-25)
 
-First of all, now we can construct $\mathbb{Q}(x)$ from $\mathbb{Q}$ as a Transcendental Extension of $\mathbb{Q}$ with zero derivation.
-This carries much semantic weight, as $x$ may indeed be considered just a transcendental element over $\mathbb{Q}$.
+First of all, now we can construct $\mathbb{Q} \left( x \right)$ 
+from 
+$\mathbb{Q}$ as a Transcendental Extension of $\mathbb{Q}$ with zero derivation.
+This carries much semantic weight, as 
+$x$ may indeed be considered just a transcendental element over $\mathbb{Q}$.
 This allows us to define the usual derivation in a trivial way, by saying $x'=1$ when building a Transcendental
-Extension of $\mathbb{Q}$, which in turn we consider a Differential Field with zero derivation $D[a]=0 \forall a \in \mathbb{Q}$.
+Extension of $\mathbb{Q}$, which in turn we consider a Differential Field with zero derivation $D[a]=0 \  \forall a \in \mathbb{Q}$.
 
 Of course, with this construction, derivation of rational functions of exponents, for example, comes for free
 since we can just write 
@@ -29,8 +32,14 @@ let qDiffField = DifferentialField(rationals, fun _ -> rationals.Zero)
 let ratFuncs = DifferentialTranscendentExtensionField(qDiffField, "x", [| rationals.One |])
 let ratOfExps = DifferentialTranscendentalExtensionField(ratFuncs, "exp(x)", [| ratFuncs.Zero; ratFuncs.One |])
 ```
-because $D[e^x]$ is indeed again $e^x$, and as a polynomial in $e^x$ with coefficients from $\mathbb{Q}(x)$, we
-write it down as `[| ratFuncs.Zero; ratFuncs.One |]`, which is basically $0 + 1 e^x$
+because 
+$D[e^x]$ is indeed again 
+$e^x$, and as a polynomial in $e^x$, 
+with coefficients from 
+$\mathbb{Q}(x)$, we
+write it down as 
+
+`[| ratFuncs.Zero; ratFuncs.One |]`, which is basically $0 + 1 e^x$
 
 Check out Program.fs for examples of how the system works.
 
@@ -71,7 +80,9 @@ and I'm currently only starting to grasp its basics. Can't even implement inheri
 
 F* would theoretically offer formal verification for quite a lot of things, such that we won't have to double-check
 stuff like operation commutativity or associativity when defining basic abstract algebra types, or the axioms
-for derivation ($D[a+b]=D[a]+D[b], D[ab]=D[a]b+aD[b]$, © Leibnitz and Newton, 17th century AD). Or even more 
+for derivation 
+
+($D[a+b]=D[a]+D[b], D[ab]=D[a]b+aD[b]$, © Leibnitz and Newton, 17th century AD). Or even more 
 interesting things, I'm not sure yet.
 
 # Acknowledgments
